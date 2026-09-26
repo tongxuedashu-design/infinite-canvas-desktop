@@ -15,6 +15,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
     const [draft, setDraft] = useState<ModelChannel | null>(channel);
     const [selectOpen, setSelectOpen] = useState(false);
     const [scriptTarget, setScriptTarget] = useState<ScriptTarget | null>(null);
+    const desktopApp = isDesktopApp();
     const apiFormatOptions: Array<{ label: string; value: ApiCallFormat }> = [
         { label: "OpenAI", value: "openai" },
         { label: "Gemini", value: "gemini" },
@@ -81,7 +82,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">API Key</span>
                     <Input.Password value={draft.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} placeholder="sk-..." />
-                    {isDesktopApp() && (
+                    {desktopApp && (
                         <div className="mt-1 text-xs text-stone-500">{t("config.desktop.credentialManagerShort")}</div>
                     )}
                 </label>

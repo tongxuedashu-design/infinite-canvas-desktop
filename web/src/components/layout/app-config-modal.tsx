@@ -68,6 +68,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const clearPromptContinue = useConfigStore((state) => state.clearPromptContinue);
     const webdavReady = Boolean(webdav.url.trim());
     const editingChannel = config.channels.find((channel) => channel.id === editingChannelId) || null;
+    const desktopApp = isDesktopApp();
     const locale = i18n.resolvedLanguage as AppLocale;
     useEffect(() => setActiveTab(initialTab), [initialTab]);
 
@@ -166,7 +167,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <>
-            {isDesktopApp() && (
+            {desktopApp && (
                 <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-700 dark:bg-stone-900">
                     <Monitor className="size-4 shrink-0 text-stone-500" />
                     <span className="text-xs font-medium text-stone-700 dark:text-stone-300">{t("config.desktop.indicator")}</span>
@@ -174,7 +175,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 </div>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3 dark:border-stone-800">
-                <div className="text-xs text-stone-500">{isDesktopApp() ? t("config.desktop.exportNotice") : t("config.fileSecurity")}</div>
+                <div className="text-xs text-stone-500">{desktopApp ? t("config.desktop.exportNotice") : t("config.fileSecurity")}</div>
                 <div className="flex gap-2">
                     <Button icon={<Upload className="size-4" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
@@ -200,7 +201,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                         {t("config.channels.add")}
                                     </Button>
                                 </div>
-                                {isDesktopApp() && (
+                                {desktopApp && (
                                     <div className="mb-4">
                                         <DesktopStatusBadge />
                                     </div>

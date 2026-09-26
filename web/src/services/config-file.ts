@@ -36,6 +36,23 @@ export async function importAppConfig(file: File) {
         throw new Error(i18n.t("config.invalidFile"));
     }
     if (data.app !== "infinite-canvas" || data.version !== 1 || !data.config || !data.webdav || !data.promptSources) throw new Error(i18n.t("config.invalidFile"));
-    useConfigStore.setState({ config: data.config, webdav: data.webdav });
+    const config = isDesktopApp() ? preserveDesktopCredentials(data.config) : data.config;
+    useConfigStore.setState({ config, webdav: data.webdav });
     usePromptSourceStore.setState(data.promptSources);
+}
+
+function preserveDesktopCredentials(importedConfig: AiConfig): AiConfig {
+    const currentConfig = useConfigStore.getState().config;
+    const currentById = new Map(currentConfig.channels.map((channel) => [channel.id, channel]));
+    const currentByBaseUrl = new Map(currentConfig.channels.map((channel) => [credentialBaseUrl(channel.baseUrl), channel]));
+    const channels = importedConfig.channels.map((channel) => {
+        if (channel.apiKey) return channel;
+        const current = currentById.get(channel.id) || currentByBaseUrl.get(credentialBaseUrl(channel.baseUrl));
+        return current?.apiKey ? { ...channel, apiKey: current.apiKey } : channel;
+    });
+    return { ...importedConfig, apiKey: importedConfig.apiKey || currentConfig.apiKey, channels };
+}
+
+function credentialBaseUrl(value: string) {
+    return value.trim().replace(/\/+$/, "").replace(/\/v1$/i, "");
 }

@@ -8,15 +8,16 @@ export function DesktopStatusBadge() {
     const { t } = useTranslation();
     const [status, setStatus] = useState<DesktopStatus | null>(null);
     const [failed, setFailed] = useState(false);
+    const desktopApp = isDesktopApp();
 
     useEffect(() => {
-        if (!isDesktopApp()) return;
+        if (!desktopApp) return;
         getDesktopStatus()
             .then(setStatus)
             .catch(() => setFailed(true));
-    }, []);
+    }, [desktopApp]);
 
-    if (!isDesktopApp()) return null;
+    if (!desktopApp) return null;
 
     return (
         <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">

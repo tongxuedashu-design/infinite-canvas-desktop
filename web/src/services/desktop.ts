@@ -80,6 +80,15 @@ export function sanitizeDesktopPersistedConfig(value: string) {
     }
 }
 
+export function sanitizeDesktopPersistedStorage(name: string) {
+    if (typeof window === "undefined") return null;
+    const value = window.localStorage.getItem(name);
+    if (!value) return value;
+    const sanitized = sanitizeDesktopPersistedConfig(value);
+    if (sanitized !== value) window.localStorage.setItem(name, sanitized);
+    return sanitized;
+}
+
 function channelCredentials(channels: ModelChannel[]) {
     return channels.map(({ id, apiKey }) => ({ id, apiKey }));
 }
@@ -96,7 +105,7 @@ async function desktopRequest<T = void>(path: string, init?: RequestInit) {
     } catch {
         throw new DesktopBridgeUnavailableError();
     }
-    if (response.status === 401 || response.status === 404 || response.status >= 500) throw new DesktopBridgeUnavailableError();
+    if (response.status === 401) throw new DesktopBridgeUnavailableError();
     if (!response.ok) throw new Error(`桌面管理请求失败（HTTP ${response.status}）`);
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;

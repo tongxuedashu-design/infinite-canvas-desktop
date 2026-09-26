@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
-import { sanitizeDesktopPersistedConfig } from "@/services/desktop";
+import { sanitizeDesktopPersistedConfig, sanitizeDesktopPersistedStorage } from "@/services/desktop";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -240,7 +240,7 @@ export const useConfigStore = create<ConfigStore>()(
         {
             name: CONFIG_STORE_KEY,
             storage: createJSONStorage(() => ({
-                getItem: (name) => window.localStorage.getItem(name),
+                getItem: (name) => sanitizeDesktopPersistedStorage(name),
                 setItem: (name, value) => window.localStorage.setItem(name, sanitizeDesktopPersistedConfig(value)),
                 removeItem: (name) => window.localStorage.removeItem(name),
             })),
