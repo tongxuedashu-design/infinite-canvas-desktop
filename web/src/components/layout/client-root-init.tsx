@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { decodeChannelModel, encodeChannelModel, guessCapability, modelOptionsFromChannels, useConfigStore } from "@/stores/use-config-store";
 import { usePromptSourceScheduler } from "@/hooks/use-prompt-source-scheduler";
-import { hydrateDesktopCredentials, initializeDesktopSession, isDesktopApp, loadDesktopApiConfig, saveDesktopApiConfig, syncDesktopCredentials } from "@/services/desktop";
+import { hydrateDesktopCredentials, initializeDesktopSession, isDesktopApp, isDesktopBridgeUnavailable, loadDesktopApiConfig, saveDesktopApiConfig, syncDesktopCredentials } from "@/services/desktop";
 
 export function ClientRootInit({ children }: { children: ReactNode }) {
     const { message } = App.useApp();
@@ -26,6 +26,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         if (!isDesktopApp()) return;
         desktopStarted.current = true;
         const initialize = async () => {
+            let phase: "load" | "hydrate" | "save" = "load";
             try {
                 const current = useConfigStore.getState().config;
                 const desktopConfig = await loadDesktopApiConfig();
@@ -44,6 +45,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
                         }, ...channels.slice(1)];
                     }
                 }
+                phase = "hydrate";
                 const credentials = await hydrateDesktopCredentials(channels);
                 channels = channels.map((channel) => ({ ...channel, apiKey: credentials.channels[channel.id] || channel.apiKey }));
                 const models = modelOptionsFromChannels(channels);
@@ -52,12 +54,13 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
                     : current.imageModel;
                 useConfigStore.setState({ config: { ...current, channels, models, imageModel, model: imageModel || current.model } });
                 if (!desktopConfig.apiKey && channels[0]?.apiKey) {
+                    phase = "save";
                     await saveDesktopApiConfig({ baseUrl: channels[0].baseUrl, apiKey: channels[0].apiKey, model: desktopConfig.model || channels[0].models[0]?.name || "" });
                 }
                 setDesktopCredentialsReady(true);
             } catch (error) {
                 setDesktopCredentialsReady(true);
-                message.error(error instanceof Error ? error.message : String(error));
+                message.error(isDesktopBridgeUnavailable(error) ? t("config.desktop.error.disconnected") : t(`config.desktop.error.${phase}`));
             }
         };
         void initialize();
@@ -81,7 +84,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
                 saveDesktopApiConfig({ baseUrl: primary.baseUrl, apiKey: primary.apiKey, model: primaryModel }),
             ])
             : syncDesktopCredentials(config);
-        void sync.catch((error) => message.error(error instanceof Error ? error.message : String(error)));
+        void sync.catch((error) => message.error(isDesktopBridgeUnavailable(error) ? t("config.desktop.error.disconnected") : t("config.desktop.error.sync")));
     }, [config, desktopCredentialsReady, message]);
 
     useEffect(() => {

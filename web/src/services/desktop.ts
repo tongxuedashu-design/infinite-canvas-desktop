@@ -5,6 +5,18 @@ type DesktopApiConfig = { baseUrl: string; apiKey: string; model: string };
 type DesktopCredentialResponse = { channels: Record<string, string> };
 
 const SESSION_KEY = "infinite-canvas:desktop-session";
+const DESKTOP_BRIDGE_UNAVAILABLE_MESSAGE = "桌面管理连接不可用，请从桌面启动器重新打开画布。";
+
+export class DesktopBridgeUnavailableError extends Error {
+    constructor() {
+        super(DESKTOP_BRIDGE_UNAVAILABLE_MESSAGE);
+        this.name = "DesktopBridgeUnavailableError";
+    }
+}
+
+export function isDesktopBridgeUnavailable(error: unknown): error is DesktopBridgeUnavailableError {
+    return error instanceof DesktopBridgeUnavailableError;
+}
 
 export function initializeDesktopSession() {
     if (typeof window === "undefined") return null;
@@ -48,6 +60,12 @@ export async function syncDesktopCredentials(config: AiConfig) {
     });
 }
 
+export type DesktopStatus = { running: boolean; vitePort?: number; bridgePort?: number };
+
+export async function getDesktopStatus() {
+    return desktopRequest<DesktopStatus>("/api/status");
+}
+
 export function sanitizeDesktopPersistedConfig(value: string) {
     if (!isDesktopApp()) return value;
     try {
@@ -68,11 +86,17 @@ function channelCredentials(channels: ModelChannel[]) {
 
 async function desktopRequest<T = void>(path: string, init?: RequestInit) {
     const session = readDesktopSession() || initializeDesktopSession();
-    if (!session) throw new Error("桌面管理连接不可用，请从桌面启动器重新打开画布。");
-    const response = await fetch(`${session.bridgeUrl}${path}`, {
-        ...init,
-        headers: { Authorization: `Bearer ${session.token}`, "Content-Type": "application/json", ...init?.headers },
-    });
+    if (!session) throw new DesktopBridgeUnavailableError();
+    let response: Response;
+    try {
+        response = await fetch(`${session.bridgeUrl}${path}`, {
+            ...init,
+            headers: { Authorization: `Bearer ${session.token}`, "Content-Type": "application/json", ...init?.headers },
+        });
+    } catch {
+        throw new DesktopBridgeUnavailableError();
+    }
+    if (response.status === 401 || response.status === 404 || response.status >= 500) throw new DesktopBridgeUnavailableError();
     if (!response.ok) throw new Error(`桌面管理请求失败（HTTP ${response.status}）`);
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;

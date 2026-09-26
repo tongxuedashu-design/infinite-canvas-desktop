@@ -1,6 +1,6 @@
 import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
 import type { TFunction } from "i18next";
-import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
+import { Cloud, Download, Monitor, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -11,6 +11,8 @@ import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
+import { isDesktopApp } from "@/services/desktop";
+import { DesktopStatusBadge } from "@/components/layout/desktop-status-badge";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
@@ -164,8 +166,15 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <>
+            {isDesktopApp() && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 dark:border-stone-700 dark:bg-stone-900">
+                    <Monitor className="size-4 shrink-0 text-stone-500" />
+                    <span className="text-xs font-medium text-stone-700 dark:text-stone-300">{t("config.desktop.indicator")}</span>
+                    <span className="text-xs text-stone-500">{t("config.desktop.credentialManagerShort")}</span>
+                </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3 dark:border-stone-800">
-                <div className="text-xs text-stone-500">{t("config.fileSecurity")}</div>
+                <div className="text-xs text-stone-500">{isDesktopApp() ? t("config.desktop.exportNotice") : t("config.fileSecurity")}</div>
                 <div className="flex gap-2">
                     <Button icon={<Upload className="size-4" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
@@ -191,6 +200,11 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                         {t("config.channels.add")}
                                     </Button>
                                 </div>
+                                {isDesktopApp() && (
+                                    <div className="mb-4">
+                                        <DesktopStatusBadge />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     {config.channels.map((channel) => (
                                         <div key={channel.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-4 py-3 dark:border-stone-800">
