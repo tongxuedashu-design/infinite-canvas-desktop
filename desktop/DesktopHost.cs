@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 
@@ -56,12 +57,7 @@ public sealed class DesktopHost : IDisposable
         {
             ThrowIfDisposed();
             PublishStatus(DesktopState.Starting, "正在启动", null);
-            if (_bridge is null)
-            {
-                _bridge = new BridgeServer(_credentialStore);
-                await _bridge.StartAsync(_lifetime.Token);
-                WriteLog($"本地管理服务已启动：{_bridge.BaseUrl}");
-            }
+            await EnsureBridgeAsync(_lifetime.Token);
 
             await StartViteAsync(_lifetime.Token);
             PublishStatus(DesktopState.Running, "服务运行中", _viteProcess?.Id);
@@ -69,6 +65,7 @@ public sealed class DesktopHost : IDisposable
         }
         catch
         {
+            StopVite();
             PublishStatus(DesktopState.Failed, "启动失败", _viteProcess is { HasExited: false } ? _viteProcess.Id : null);
             throw;
         }
@@ -86,11 +83,13 @@ public sealed class DesktopHost : IDisposable
             ThrowIfDisposed();
             PublishStatus(DesktopState.Stopping, "正在重新启动", _viteProcess is { HasExited: false } ? _viteProcess.Id : null);
             StopVite();
+            await EnsureBridgeAsync(_lifetime.Token);
             await StartViteAsync(_lifetime.Token);
             PublishStatus(DesktopState.Running, "服务运行中", _viteProcess?.Id);
         }
         catch
         {
+            StopVite();
             PublishStatus(DesktopState.Failed, "重启失败", null);
             throw;
         }
@@ -124,6 +123,24 @@ public sealed class DesktopHost : IDisposable
         var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
         try { _logWriter?.WriteLine(line); } catch { }
         LogReceived?.Invoke(line);
+    }
+
+    private async Task EnsureBridgeAsync(CancellationToken cancellationToken)
+    {
+        if (_bridge is not null) return;
+
+        var bridge = new BridgeServer(_credentialStore);
+        try
+        {
+            await bridge.StartAsync(cancellationToken);
+            _bridge = bridge;
+            WriteLog($"本地管理服务已启动：{bridge.BaseUrl}");
+        }
+        catch
+        {
+            await bridge.DisposeAsync();
+            throw;
+        }
     }
 
     private async Task StartViteAsync(CancellationToken cancellationToken)
