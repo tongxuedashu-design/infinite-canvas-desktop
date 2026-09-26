@@ -13,11 +13,13 @@ namespace InfiniteCanvasDesktop;
 public sealed class BridgeServer : IAsyncDisposable
 {
     private readonly WindowsCredentialStore _credentialStore;
+    private readonly Func<BridgeStatusResponse>? _statusProvider;
     private WebApplication? _application;
 
-    public BridgeServer(WindowsCredentialStore credentialStore)
+    public BridgeServer(WindowsCredentialStore credentialStore, Func<BridgeStatusResponse>? statusProvider = null)
     {
         _credentialStore = credentialStore;
+        _statusProvider = statusProvider;
         Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
     }
 
@@ -71,7 +73,7 @@ public sealed class BridgeServer : IAsyncDisposable
             _credentialStore.SyncChannels(request.Channels);
             return Results.NoContent();
         });
-        app.MapGet("/api/status", () => Results.Json(new { running = true, vitePort = 3000, bridgePort = Port }));
+        app.MapGet("/api/status", () => Results.Json(_statusProvider?.Invoke() ?? new BridgeStatusResponse(true, 3000, null, Port, "running", "服务运行中")));
 
         await app.StartAsync(cancellationToken);
         var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses;
@@ -88,6 +90,8 @@ public sealed class BridgeServer : IAsyncDisposable
         _application = null;
     }
 }
+
+public sealed record BridgeStatusResponse(bool Running, int VitePort, int? ViteProcessId, int BridgePort, string State, string Message);
 
 public sealed record ChannelCredentialsRequest(IReadOnlyList<ChannelCredential> Channels);
 public sealed record ChannelCredentialsResponse(IReadOnlyDictionary<string, string> Channels);

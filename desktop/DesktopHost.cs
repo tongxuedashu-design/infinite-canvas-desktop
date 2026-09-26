@@ -20,6 +20,8 @@ public sealed class DesktopHost : IDisposable
     private Process? _viteProcess;
     private BridgeServer? _bridge;
     private CancellationTokenSource _lifetime = new();
+    private DesktopState _state = DesktopState.Starting;
+    private string _statusMessage = "正在准备";
     private bool _disposed;
 
     public DesktopHost()
@@ -129,7 +131,7 @@ public sealed class DesktopHost : IDisposable
     {
         if (_bridge is not null) return;
 
-        var bridge = new BridgeServer(_credentialStore);
+        var bridge = new BridgeServer(_credentialStore, GetBridgeStatus);
         try
         {
             await bridge.StartAsync(cancellationToken);
@@ -237,7 +239,24 @@ public sealed class DesktopHost : IDisposable
     }
 
     private void PublishStatus(DesktopState state, string message, int? processId)
-        => StatusChanged?.Invoke(new DesktopStatus(state, message, processId, _bridge?.Port));
+    {
+        _state = state;
+        _statusMessage = message;
+        StatusChanged?.Invoke(new DesktopStatus(state, message, processId, _bridge?.Port));
+    }
+
+    private BridgeStatusResponse GetBridgeStatus()
+    {
+        var process = _viteProcess;
+        var running = process is { HasExited: false };
+        return new BridgeStatusResponse(
+            running,
+            3000,
+            running ? process!.Id : null,
+            _bridge?.Port ?? 0,
+            _state.ToString().ToLowerInvariant(),
+            _statusMessage);
+    }
 
     private static string FindProjectRoot()
     {
