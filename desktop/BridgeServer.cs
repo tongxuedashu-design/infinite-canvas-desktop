@@ -85,8 +85,8 @@ public sealed class BridgeServer : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (_application is null) return;
-        await _application.StopAsync();
-        await _application.DisposeAsync();
+        await _application.StopAsync().ConfigureAwait(false);
+        await _application.DisposeAsync().ConfigureAwait(false);
         _application = null;
     }
 }

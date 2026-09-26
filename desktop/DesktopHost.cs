@@ -8,7 +8,7 @@ namespace InfiniteCanvasDesktop;
 public enum DesktopState { Starting, Running, Stopping, Failed }
 public sealed record DesktopStatus(DesktopState State, string Message, int? ProcessId, int? BridgePort);
 
-public sealed class DesktopHost : IDisposable
+public sealed class DesktopHost : IDisposable, IAsyncDisposable
 {
     private readonly string _projectRoot;
     private readonly string _webDirectory;
@@ -298,7 +298,9 @@ public sealed class DesktopHost : IDisposable
         if (_disposed) throw new ObjectDisposedException(nameof(DesktopHost));
     }
 
-    public void Dispose()
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
@@ -307,7 +309,7 @@ public sealed class DesktopHost : IDisposable
         StopVite();
         if (_bridge is not null)
         {
-            try { _bridge.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { }
+            try { await _bridge.DisposeAsync().ConfigureAwait(false); } catch { }
             _bridge = null;
         }
         WriteLog("桌面端已关闭其启动的本地服务。");

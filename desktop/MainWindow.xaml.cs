@@ -28,6 +28,9 @@ public partial class MainWindow : Window
         {
             await _host.StartAsync(openCanvas: true);
         }
+        catch (OperationCanceledException) when (_closing)
+        {
+        }
         catch (Exception ex)
         {
             _host.WriteLog($"启动失败：{ex.Message}");
@@ -127,8 +130,23 @@ public partial class MainWindow : Window
         if (!_closing)
         {
             _closing = true;
-            _host.Dispose();
+            e.Cancel = true;
+            IsEnabled = false;
+            _ = FinishClosingAsync();
+            return;
         }
         base.OnClosing(e);
+    }
+
+    private async Task FinishClosingAsync()
+    {
+        try
+        {
+            await _host.DisposeAsync();
+        }
+        finally
+        {
+            Close();
+        }
     }
 }
