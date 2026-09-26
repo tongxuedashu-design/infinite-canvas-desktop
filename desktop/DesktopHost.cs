@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace InfiniteCanvasDesktop;
 
@@ -10,6 +11,7 @@ public sealed record DesktopStatus(DesktopState State, string Message, int? Proc
 
 public sealed class DesktopHost : IDisposable, IAsyncDisposable
 {
+    private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-?]*[ -/]*[@-~]", RegexOptions.Compiled);
     private readonly string _projectRoot;
     private readonly string _webDirectory;
     private readonly WindowsCredentialStore _credentialStore;
@@ -122,6 +124,7 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
 
     public void WriteLog(string message)
     {
+        message = AnsiEscapePattern.Replace(message, string.Empty);
         var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
         try { _logWriter?.WriteLine(line); } catch { }
         LogReceived?.Invoke(line);
