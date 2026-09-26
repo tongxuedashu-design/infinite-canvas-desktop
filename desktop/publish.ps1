@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $desktopDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $publishDir = Join-Path $desktopDir 'publish'
 
