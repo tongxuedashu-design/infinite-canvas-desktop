@@ -30,7 +30,7 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
     {
         _projectRoot = FindProjectRoot();
         _webDirectory = Path.Combine(_projectRoot, "web");
-        DataDirectory = Path.Combine(Directory.GetParent(_projectRoot)?.FullName ?? _projectRoot, "EdgeData");
+        DataDirectory = ResolveDataDirectory(_projectRoot);
         var desktopData = Path.Combine(DataDirectory, "InfiniteCanvasDesktop");
         LogDirectory = Path.Combine(desktopData, "logs");
         Directory.CreateDirectory(LogDirectory);
@@ -166,6 +166,8 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = new UTF8Encoding(false),
+            StandardErrorEncoding = new UTF8Encoding(false),
         };
         startInfo.ArgumentList.Add(viteScript);
         startInfo.ArgumentList.Add("--host");
@@ -275,10 +277,20 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
         throw new DirectoryNotFoundException("无法定位项目根目录（需要包含 web/package.json）。请把桌面程序放在项目目录内运行。");
     }
 
+    private static string ResolveDataDirectory(string projectRoot)
+    {
+        if (File.Exists(Path.Combine(projectRoot, ".infinite-canvas-portable")))
+            return Path.Combine(projectRoot, "EdgeData");
+
+        return Path.Combine(Directory.GetParent(projectRoot)?.FullName ?? projectRoot, "EdgeData");
+    }
+
     private static string FindNodePath()
     {
         var candidates = new[]
         {
+            Path.Combine(AppContext.BaseDirectory, "runtime", "node.exe"),
+            Path.Combine(AppContext.BaseDirectory, "node.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs", "node.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "nodejs", "node.exe"),
         };

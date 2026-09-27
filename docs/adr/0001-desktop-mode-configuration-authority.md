@@ -1,0 +1,3 @@
+# Desktop mode uses the local bridge as configuration authority
+
+In desktop mode, the Windows desktop manager and its authenticated local bridge own reusable canvas configuration, while all secret credentials—including channel API keys, WebDAV passwords, and Canvas Agent tokens—remain in Windows Credential Manager. The desktop manager directly manages multiple AI channels, their model lists, and default model selections, and opens the existing Web configuration at a specific tab for advanced settings; ordinary Web mode continues to own its browser-local configuration. Changes are written only after an explicit save, avoiding two independent configuration copies without duplicating the entire Web configuration interface in WPF.

@@ -15,6 +15,8 @@
 
 ## Development and Data
 
+- [Desktop configuration-center specification (to-spec draft)](specs/infinite-canvas-desktop-configuration.md)
+- [Desktop configuration-center tasks (confirmed locally)](specs/desktop-configuration-tickets/README.md)
 - [Local Development](/docs/development/local-development)
 - [Canvas Data Structure](/docs/development/canvas-data-structure)
 - [How the Local Codex Connection Works](/docs/development/local-codex-canvas)

@@ -22,7 +22,198 @@
   <a href="docs/content/docs/overview/quick-start.mdx">快速开始</a> · <a href="docs/content/docs/overview/features.mdx">功能介绍</a> · <a href="docs/content/docs/overview/render.mdx">Render 部署</a> · <a href="docs/content/docs/overview/docker.mdx">Docker 部署</a> · <a href="docs/content/docs/canvas/canvas-node-manual.mdx">画布节点操作手册</a> · <a href="docs/content/docs/canvas/canvas-shortcuts.mdx">画布快捷键</a> · <a href="SECURITY.md">漏洞提交</a> · <a href="docs/content/docs/progress/todo.mdx">待办事项</a> · <a href="canvas-agent/README.md">本地 Canvas Agent</a> · <a href="plugins/infinite-canvas">Codex app 插件</a>
 </p>
 
-无限画布是一款面向图片创作的开源工作台。它把画布编排、AI 图片生成、参考图编辑、对话助手、提示词库和素材沉淀放在同一个界面里，适合用来探索视觉方案并连续迭代图片结果。
+无限画布是一款在浏览器中运行的开源多模态创作工作台。它把提示词、参考素材、模型配置和生成结果组织成可连接的画布节点，适合连续完成图片、文本、视频和音频内容的探索与迭代。
+
+## 项目解决了什么问题
+
+使用多个 AI 模型创作时，提示词、参考图、参数和输出通常分散在不同页面或聊天记录中，结果之间的关系也很难保留。无限画布提供一个以节点和连线为中心的工作空间：
+
+- 把文本、图片、视频、音频和生成配置放在同一张画布上，保留输入与结果的上下游关系。
+- 通过多个模型渠道统一管理 Base URL、API Key、模型列表和默认模型，减少在不同服务之间反复切换配置。
+- 让参考图、上游文本和素材可以重复组合，生成结果可以继续成为下一次生成的输入。
+- 将常用提示词、图片素材、画布项目和生成记录保存在浏览器本地，并可按需使用 WebDAV 同步。
+- 可选连接本地 Canvas Agent，让 Codex 或 Claude Code 在用户确认后读取和修改当前画布。
+
+## 主要功能
+
+| 能力 | 当前实现 |
+| --- | --- |
+| 无限画布 | 多画布项目；图片、文本、生成配置、视频、音频和分组节点；拖拽、缩放、框选、连线、小地图、撤销重做、复制粘贴和项目 JSON 导入导出。 |
+| 多模态生成 | 浏览器直接请求用户配置的模型服务，支持图片生成与编辑、文本生成、视频生成和音频生成；具体可用能力取决于所选模型和接口。 |
+| 多渠道配置 | 支持多个 OpenAI 兼容或 Gemini 格式渠道，为模型标注图片、视频、文本或音频能力，并分别选择四类默认模型。 |
+| 图片工作流 | 上传或拖入图片、参考图编辑、裁剪、本地多角度变换、失败重试、多图结果展开与主图切换、下载及保存到素材库。 |
+| 上下游引用 | 生成配置节点可组合连接的文本、图片、视频和音频；编辑器支持 `@` 引用已连接资源。 |
+| 画布助手 | 围绕选中节点及其上游内容进行文本问答或图片生成，并可把回答和图片插回画布。 |
+| 提示词与素材 | 内置 7 个提示词来源，支持搜索、筛选、自定义标准 JSON 来源和本地缓存；素材库支持文本、图片、标签、搜索和插入画布。 |
+| 配置与同步 | 支持配置 JSON 导入导出、本地存储占用查看、可选本地代理，以及画布、素材和生成记录的 WebDAV 同步。 |
+| 扩展能力 | 支持通过 URL 安装节点插件，并提供 TypeScript 插件 SDK；可选使用本地 Canvas Agent 和 Codex App 插件操作画布。 |
+
+完整能力和当前限制见[功能介绍](docs/content/docs/overview/features.zh-CN.mdx)。
+
+## 安装方法
+
+### 方式一：本地开发
+
+需要安装 Git 和 Bun。项目的前端应用位于 `web/`：
+
+```bash
+git clone https://github.com/basketikun/infinite-canvas.git
+cd infinite-canvas/web
+bun install
+bun run dev
+```
+
+启动后访问：
+
+```text
+http://localhost:3000
+```
+
+构建静态产物：
+
+```bash
+cd web
+bun run build
+```
+
+构建结果位于 `web/dist/`。
+
+### 方式二：Docker
+
+直接运行发布镜像：
+
+```bash
+git clone https://github.com/basketikun/infinite-canvas.git
+cd infinite-canvas
+docker compose up -d
+```
+
+基于当前源码构建并运行：
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+两种方式均默认监听 `http://localhost:3000`。主应用镜像只提供静态前端，AI 请求仍由浏览器直接发送到用户配置的接口。
+
+### 方式三：Vercel
+
+在 Vercel 中导入本仓库即可。根目录的 `vercel.json` 会在 `web/` 中安装依赖、执行 Vite 构建，并把 `web/dist/` 作为单页应用发布。
+
+### Windows 桌面开发入口（可选）
+
+仓库包含一个 WPF 启动器，可启动当前 `web/` 目录的 Vite 服务并以 Edge App 模式打开画布。它目前用于 Windows 本地开发和验收，不是正式安装器。使用前先安装 `web/` 依赖，再在项目根目录的 PowerShell 中运行：
+
+```powershell
+.\desktop\publish.ps1
+```
+
+当前桌面入口仍依赖 Microsoft Edge，并按现有开发运行方式使用 Node.js 启动 Vite。详情见 [Windows 桌面端说明](desktop/README.md)。
+
+## 使用方法
+
+1. 打开右上角“配置与偏好”，新增或编辑模型渠道。
+2. 填写渠道名称、`Base URL`、`API Key` 和接口格式；添加模型并为模型选择图片、视频、文本或音频能力。
+3. 在“偏好”中分别选择默认图片、视频、文本和音频模型。也可以配置生成参数、提示词来源、本地代理和 WebDAV。
+4. 打开“画布”，创建一个项目。可添加文本、图片或生成配置节点，也可直接把图片文件拖入画布。
+5. 使用连线或编辑器中的 `@` 引用组织输入，在节点面板中选择生成模式、模型和参数，然后执行生成。
+6. 生成结果会写入画布节点。可继续连接到其他节点、切换多结果主项、下载文件、保存到“我的素材”或导出画布 JSON。
+
+如果模型服务的请求格式与内置 OpenAI/Gemini 调用不一致，可以为模型配置自定义图片或视频调用脚本。脚本在浏览器中运行，请只使用可信脚本。
+
+### 可选：连接本地 Canvas Agent
+
+```bash
+npx -y @basketikun/canvas-agent@latest
+```
+
+启动后终端会显示本地地址和连接 token。在画布右上角打开 `Agent`，填写这两项即可连接。Canvas Agent 默认只监听 `127.0.0.1`；详细安装、Codex MCP 和调试方式见 [Canvas Agent 文档](canvas-agent/README.md)。
+
+## 输入输出示例
+
+以下示例描述画布中的输入和可观察输出。模型生成的具体内容由所选服务决定。
+
+### 示例一：文本生成图片
+
+**输入**
+
+```text
+模式：图片
+提示词：雨夜的未来城市街道，霓虹灯倒映在积水中，电影感广角构图
+模型：已配置的图片模型
+比例：16:9
+数量：2
+```
+
+**输出**
+
+- 画布创建一个图片结果节点，并保留从提示词或生成配置节点到结果节点的连线。
+- 两张结果会作为同一图片组的可展开选项展示，可以切换主图、单独下载或复制为独立节点。
+
+### 示例二：参考图编辑
+
+**输入**
+
+```text
+参考：连接一个已有图片节点
+提示词：保持主体姿态和构图，将背景改为清晨雪山，使用柔和自然光
+模式：图片编辑
+```
+
+**输出**
+
+- 原参考图保持不变。
+- 编辑结果写入新的图片节点，并通过连线保留参考图与结果之间的关系。
+
+### 示例三：生成文字内容
+
+**输入**
+
+```text
+模式：文本
+提示词：为这组产品概念图写一段 80 字以内的中文设计说明
+参考：可连接图片节点和补充说明文本节点
+```
+
+**输出**
+
+- 模型回答写入文本结果节点。
+- 该文本可继续编辑、复制、保存到素材库，或连接到后续图片、视频、音频生成节点。
+
+### 示例四：生成视频
+
+**输入**
+
+```text
+模式：视频
+提示词：镜头缓慢向前推进，云层流动，画面保持稳定
+参考：可连接首帧图片、尾帧图片或其他参考资源
+模型：已配置且标记为视频能力的模型
+```
+
+**输出**
+
+- 项目创建视频节点并展示任务状态。
+- 服务返回结果后，视频节点使用原生播放器预览，可下载或继续作为下游参考。
+
+## 数据与安全说明
+
+- 普通 Web 模式不要求注册账号。画布项目、素材、生成记录、模型配置和 API Key 默认保存在当前浏览器本地。
+- AI、提示词来源和 WebDAV 请求由浏览器直接访问用户配置的服务，不经过项目提供的 AI 中转后端。
+- API Key 会进入浏览器存储，只建议在个人电脑或可信环境中使用；共享电脑使用后应清理站点数据。
+- WebDAV 是可选同步能力，不代表项目默认提供云端账号同步。
+- 项目仍处于开发阶段，本地数据结构可能调整。重要画布请定期导出 JSON 或配置 WebDAV 备份。
+
+## 文档入口
+
+- [快速开始](docs/content/docs/overview/quick-start.zh-CN.mdx)
+- [功能介绍](docs/content/docs/overview/features.zh-CN.mdx)
+- [Docker 部署](docs/content/docs/overview/docker.zh-CN.mdx)
+- [画布节点操作手册](docs/content/docs/canvas/canvas-node-manual.zh-CN.mdx)
+- [画布快捷键](docs/content/docs/canvas/canvas-shortcuts.zh-CN.mdx)
+- [本地 Canvas Agent](canvas-agent/README.md)
+- [Codex App 插件](plugins/infinite-canvas/README.md)
+- [待办事项](docs/content/docs/progress/todo.zh-CN.mdx)
 
 > [!CAUTION]
 > 项目目前处于开发阶段，不保证历史数据兼容。各种本地存储格式都可能直接调整，欢迎关注后续更新。
@@ -81,49 +272,6 @@
     </td>
   </tr>
 </table>
-
-## 核心功能
-
-- 无限画布：多画布项目、节点拖拽缩放、连线、小地图、撤销重做、导入导出。
-- AI 创作：浏览器前台直连你配置的 OpenAI 兼容接口，支持文生图、图生图、参考图编辑、文本问答、音频和视频生成。
-- 画布助手：围绕选中节点和上游节点对话、生图，并把结果插回画布。
-- 本地 Agent：通过本机 Canvas Agent 连接 Codex / Claude Code，让 Agent 通过 MCP 操作当前画布；
-- Codex App 插件：提供 Codex app 插件，安装后会自动注册 MCP 并尝试拉起本地 Agent。
-- 插件系统：支持通过 URL 动态安装 / 启用 / 更新 / 卸载远程节点插件，并提供 TypeScript SDK 自行开发画布节点插件。
-- 自定义接口调用：可自定义生图 / 视频接口的调用方式，灵活适配各类中转站与自建服务。
-- 提示词库：内置 7 个开源提示词来源并支持自定义标准 JSON 来源，由浏览器前端直连并缓存到 IndexedDB。
-
-完整功能说明见 [功能介绍](docs/content/docs/overview/features.mdx)。
-
-如果你在为担心没有合适的生图API来发愁，可以查看该免费生图项目：[chatgpt2api](https://github.com/basketikun/chatgpt2api)
-
-## 快速开始
-
-AI API Key、Base URL、画布、素材和生成记录默认保存在浏览器本地。
-
-### 本地开发
-
-```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-cd web
-bun install
-bun run dev
-```
-
-### Docker 运行
-
-```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
-docker compose up -d
-```
-
-运行后默认端口3000，可访问 `http://localhost:3000`。
-
-首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
-
-如果默认的OpenAI接口调用方式与您的API不同，可自定义生图/视频脚本调用。
 
 ## 效果展示
 
