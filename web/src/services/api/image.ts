@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import i18n from "@/i18n";
-import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
+import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, withLocalProxy, useConfigStore, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import { normalizePluginImages, runModelPlugin } from "./model-plugin";
 import { nanoid } from "nanoid";
 import { dataUrlToFile } from "@/lib/image-utils";
@@ -343,7 +343,7 @@ function withSystemPrompt(config: AiConfig, prompt: string) {
 }
 
 function aiApiUrl(config: AiConfig, path: string) {
-    return buildApiUrl(config.baseUrl, path);
+    return buildApiUrl(config.baseUrl, path, config);
 }
 
 function aiHeaders(config: AiConfig, contentType?: string) {
@@ -363,10 +363,11 @@ function geminiModelName(model: string) {
     return model.trim().replace(/^models\//, "");
 }
 
-function geminiApiUrl(config: Pick<AiConfig, "baseUrl" | "model">, action?: "generateContent" | "streamGenerateContent") {
+function geminiApiUrl(config: Pick<AiConfig, "baseUrl" | "model"> & Partial<Pick<AiConfig, "proxyEnabled" | "proxyUrl">>, action?: "generateContent" | "streamGenerateContent") {
     const baseUrl = geminiBaseUrl(config);
-    if (!action) return withLocalProxy(`${baseUrl}/models`);
-    return withLocalProxy(`${baseUrl}/models/${encodeURIComponent(geminiModelName(config.model))}:${action}`);
+    const proxy = { proxyEnabled: config.proxyEnabled ?? false, proxyUrl: config.proxyUrl ?? "" };
+    if (!action) return withLocalProxy(`${baseUrl}/models`, proxy);
+    return withLocalProxy(`${baseUrl}/models/${encodeURIComponent(geminiModelName(config.model))}:${action}`, proxy);
 }
 
 function geminiHeaders(config: Pick<AiConfig, "apiKey">) {
@@ -694,7 +695,7 @@ async function requestGeminiImages(config: AiConfig, prompt: string, references:
 async function requestGeminiImagesOnce(config: AiConfig, prompt: string, references: ReferenceImage[], options?: RequestOptions) {
     const parts: GeminiPart[] = [{ text: prompt }];
     for (const image of references) {
-        parts.push(toGeminiImagePart(await imageToDataUrl(image)));
+        parts.push(toGeminiImagePart(await imageToDataUrl(image, { ...options, proxy: config })));
     }
     const response = await axios.post<GeminiPayload>(
         geminiApiUrl(config, "generateContent"),
@@ -792,7 +793,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
         const quality = normalizeQuality(config.quality);
         const requestSize = resolveRequestSize(quality, config.size);
         const background = normalizeBackground(config.background);
-        const refs = await Promise.all(references.map((image) => imageToDataUrl(image)));
+        const refs = await Promise.all(references.map((image) => imageToDataUrl(image, { ...options, proxy: config })));
         try {
             const result = await runModelPlugin({
                 capability: "image",
@@ -837,7 +838,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     if (background) {
         formData.set("background", background);
     }
-    const files = await Promise.all(references.map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
+    const files = await Promise.all(references.map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image, { ...options, proxy: requestConfig }) })));
     const imageField = files.length > 1 ? "image[]" : "image";
     files.forEach((file) => formData.append(imageField, file));
 
@@ -889,16 +890,21 @@ export async function requestImageQuestion(config: AiConfig, messages: AiTextMes
 }
 
 export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKey" | "apiFormat">) {
+    // Capture the proxy settings together with the channel draft. The drawer can fetch
+    // models before the channel is saved, so relying on a later global-store read can
+    // send this request through a stale or incomplete proxy configuration.
+    const { proxyEnabled, proxyUrl } = useConfigStore.getState().config;
+    const snapshot = { ...config, proxyEnabled, proxyUrl };
     try {
         if (config.apiFormat === "gemini") {
-            const response = await axios.get<GeminiPayload>(geminiApiUrl({ ...defaultGeminiConfig, ...config }), { headers: geminiHeaders({ ...defaultGeminiConfig, ...config }) });
+            const response = await axios.get<GeminiPayload>(geminiApiUrl({ ...defaultGeminiConfig, ...snapshot }), { headers: geminiHeaders(snapshot) });
             validateGeminiPayload(response.data);
             return (response.data.models || [])
                 .map((model) => model.name?.replace(/^models\//, ""))
                 .filter((id): id is string => Boolean(id))
                 .sort((a, b) => a.localeCompare(b));
         }
-        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
+        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(snapshot.baseUrl, "/models", snapshot), {
             headers: {
                 Authorization: `Bearer ${config.apiKey}`,
             },

@@ -14,7 +14,8 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
     private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-?]*[ -/]*[@-~]", RegexOptions.Compiled);
     private readonly string _projectRoot;
     private readonly string _webDirectory;
-    private readonly WindowsCredentialStore _credentialStore;
+    private readonly IConfigurationCoordinator _configuration;
+    private readonly DesktopPreferencesStore _preferences;
     private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
     private readonly HttpClient _http = new();
     private readonly string _logPath;
@@ -36,22 +37,42 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
         Directory.CreateDirectory(LogDirectory);
         _logPath = Path.Combine(LogDirectory, $"desktop-{DateTime.Now:yyyyMMdd-HHmmss}.log");
         _logWriter = new StreamWriter(_logPath, append: false, new UTF8Encoding(false)) { AutoFlush = true };
-        _credentialStore = new WindowsCredentialStore(desktopData);
+        _configuration = new ConfigurationCoordinator(new WindowsCredentialStore(desktopData));
+        _preferences = new DesktopPreferencesStore(desktopData);
+        OpenCanvasOnStartup = _preferences.LoadOpenCanvasOnStartup();
         WriteLog($"项目目录：{_projectRoot}");
         WriteLog($"Edge 数据目录：{DataDirectory}");
+        WriteLog($"启动时打开画布：{(OpenCanvasOnStartup ? "是" : "否")}");
     }
 
     public event Action<string>? LogReceived;
     public event Action<DesktopStatus>? StatusChanged;
     public string DataDirectory { get; }
     public string LogDirectory { get; }
+    public bool OpenCanvasOnStartup { get; private set; }
 
-    public ApiConfiguration LoadConfiguration() => _credentialStore.Load();
+    public ApiConfiguration LoadConfiguration() => _configuration.Load();
+
+    public DesktopConfigurationSnapshot? LoadConfigurationSnapshot() => _configuration.LoadSnapshot();
+
+    public void SaveConfigurationSnapshot(DesktopConfigurationSnapshot snapshot)
+    {
+        _configuration.SaveSnapshot(snapshot);
+        WriteLog("已保存画布渠道与模型快照（不含 API Key）。");
+    }
 
     public void SaveConfiguration(ApiConfiguration configuration)
     {
-        _credentialStore.Save(configuration);
+        _configuration.Save(configuration);
         WriteLog("API 配置已保存，密钥已写入 Windows 凭据管理器。");
+    }
+
+    public void SetOpenCanvasOnStartup(bool enabled)
+    {
+        ThrowIfDisposed();
+        _preferences.SaveOpenCanvasOnStartup(enabled);
+        OpenCanvasOnStartup = enabled;
+        WriteLog($"已保存启动偏好：启动时{(enabled ? "打开" : "不打开")}画布。");
     }
 
     public async Task StartAsync(bool openCanvas)
@@ -134,7 +155,7 @@ public sealed class DesktopHost : IDisposable, IAsyncDisposable
     {
         if (_bridge is not null) return;
 
-        var bridge = new BridgeServer(_credentialStore, GetBridgeStatus);
+        var bridge = new BridgeServer(_configuration, GetBridgeStatus);
         try
         {
             await bridge.StartAsync(cancellationToken);

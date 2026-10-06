@@ -12,11 +12,12 @@ import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { isDesktopApp } from "@/services/desktop";
+import { saveDesktopConfiguration } from "@/services/desktop";
 import { DesktopStatusBadge } from "@/components/layout/desktop-status-badge";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
-import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import { createModelChannel, decodeChannelModel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 
 type ModelGroup = {
     capability: ModelCapability;
@@ -57,6 +58,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const [editingChannelId, setEditingChannelId] = useState("");
     const [testingWebdav, setTestingWebdav] = useState(false);
     const [syncingWebdav, setSyncingWebdav] = useState(false);
+    const [savingDesktopConfig, setSavingDesktopConfig] = useState(false);
     const [webdavSyncStatus, setWebdavSyncStatus] = useState("");
     const [webdavDomainProgress, setWebdavDomainProgress] = useState(createWebdavDomainProgress);
     const config = useConfigStore((state) => state.config);
@@ -76,8 +78,27 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         (Object.keys(nextConfig) as Array<keyof AiConfig>).forEach((key) => updateConfig(key, nextConfig[key]));
     };
 
-    const finishConfig = () => {
+    const persistDesktopConfig = async (nextConfig: AiConfig) => {
+        if (!desktopApp) return;
+        const primary = nextConfig.channels[0];
+        const selectedImageModel = decodeChannelModel(nextConfig.imageModel);
+        const primaryModel = selectedImageModel?.channelId === primary?.id ? selectedImageModel.model : primary?.models[0]?.name || "";
+        await saveDesktopConfiguration(nextConfig, primaryModel);
+    };
+
+    const finishConfig = async () => {
         const ready = config.channels.some((channel) => channel.baseUrl.trim() && channel.apiKey.trim() && channel.models.length);
+        if (desktopApp) {
+            setSavingDesktopConfig(true);
+            try {
+                await persistDesktopConfig(config);
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : t("config.desktop.error.sync"));
+                setSavingDesktopConfig(false);
+                return;
+            }
+            setSavingDesktopConfig(false);
+        }
         setConfigDialogOpen(false);
         if (!ready) return;
         message.success(t(shouldPromptContinue ? "config.savedContinue" : "config.saved"));
@@ -111,8 +132,17 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         updateChannels(config.channels.filter((channel) => channel.id !== id));
     };
 
-    const saveChannel = (channel: ModelChannel) => {
-        updateChannels(config.channels.map((item) => (item.id === channel.id ? channel : item)));
+    const saveChannel = async (channel: ModelChannel) => {
+        const nextConfig = withChannels(config, config.channels.map((item) => (item.id === channel.id ? channel : item)));
+        saveConfig(nextConfig);
+        if (desktopApp) {
+            try {
+                await persistDesktopConfig(nextConfig);
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : t("config.desktop.error.sync"));
+                throw error;
+            }
+        }
     };
 
     const testWebdav = async () => {
@@ -342,7 +372,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
             />
             {showDoneButton ? (
                 <div className="mt-4 flex justify-end">
-                    <Button type="primary" onClick={finishConfig}>
+                    <Button type="primary" loading={savingDesktopConfig} onClick={() => void finishConfig()}>
                         {t("common.done")}
                     </Button>
                 </div>

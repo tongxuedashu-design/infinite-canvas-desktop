@@ -7,6 +7,9 @@ dotnet publish (Join-Path $desktopDir 'InfiniteCanvasDesktop.csproj') `
     --runtime win-x64 `
     --self-contained true `
     --output $publishDir
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish 失败，退出码：$LASTEXITCODE。请确认发布目录中的 InfiniteCanvasDesktop.exe 未被运行中的程序占用。"
+}
 
 $executable = Join-Path $publishDir 'InfiniteCanvasDesktop.exe'
 $desktopPath = [Environment]::GetFolderPath('Desktop')

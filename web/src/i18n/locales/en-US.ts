@@ -390,6 +390,7 @@ export default {
             channelHint: "Keep the real endpoint in Providers and WebDAV — never the proxy address. Turning the switch off restores direct requests.",
             test: "Test connection",
             available: "Local proxy is reachable ({{proxy}})",
+            autoDisabled: "The local proxy is not running, so direct requests are enabled. Start the proxy before turning it on again.",
             missingUrl: "Enter the local proxy address first.",
             unreachable: "Local proxy is unreachable. Make sure the command is running and the address is correct.",
         },

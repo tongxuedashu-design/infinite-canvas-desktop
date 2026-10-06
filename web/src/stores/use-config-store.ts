@@ -147,7 +147,7 @@ type ConfigStore = {
     clearPromptContinue: () => void;
 };
 
-const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
+const VIDEO_KEYWORDS = ["video", "seedance", "sora", "veo", "kling", "wan", "hailuo"];
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;
@@ -186,7 +186,9 @@ export function resolveModelForCapability(config: AiConfig, currentModel: string
     const fallbackModel = capability === "image" ? defaultConfig.imageModel : capability === "video" ? defaultConfig.videoModel : capability === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     if (currentModel && modelMatchesCapability(config, currentModel, capability)) return currentModel;
     if (defaultModel && modelMatchesCapability(config, defaultModel, capability)) return defaultModel;
-    return fallbackModel;
+    const available = selectableModelsByCapability(config, capability);
+    if (available.length) return available[0];
+    return config.channels.length ? "" : fallbackModel;
 }
 
 export function selectableModelsByCapability(config: AiConfig, capability?: ModelCapability) {
@@ -200,8 +202,8 @@ export function resolveModelScript(config: AiConfig, value: string) {
 }
 
 function isAiConfigReady(config: AiConfig, model: string) {
-    const channel = resolveModelChannel(config, model);
-    return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
+    const matched = findChannelModel(config, model);
+    return Boolean(matched && matched.channel.baseUrl.trim() && matched.channel.apiKey.trim());
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -479,11 +481,11 @@ function uniqueModelOptions(models: string[]) {
     return Array.from(new Set((models || []).map((model) => model.trim()).filter(Boolean)));
 }
 
-export function buildApiUrl(baseUrl: string, path: string) {
+export function buildApiUrl(baseUrl: string, path: string, proxy?: Pick<AiConfig, "proxyEnabled" | "proxyUrl">) {
     const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, "");
     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
     const apiBaseUrl = lowerBaseUrl.endsWith("/v1") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;
-    return withLocalProxy(`${apiBaseUrl}${path}`);
+    return withLocalProxy(`${apiBaseUrl}${path}`, proxy);
 }
 
 export function normalizeLocalProxyUrl(value: string) {
@@ -493,8 +495,8 @@ export function normalizeLocalProxyUrl(value: string) {
 }
 
 /** Prefix an outgoing request with the local forwarding proxy so the browser is not blocked by CORS. */
-export function withLocalProxy(url: string) {
-    const { proxyEnabled, proxyUrl } = useConfigStore.getState().config;
+export function withLocalProxy(url: string, proxy: Pick<AiConfig, "proxyEnabled" | "proxyUrl"> = useConfigStore.getState().config) {
+    const { proxyEnabled, proxyUrl } = proxy;
     if (!proxyEnabled || !/^https?:\/\//i.test(url)) return url;
     const base = normalizeLocalProxyUrl(proxyUrl);
     if (!base || url.startsWith(`${base}/`)) return url;

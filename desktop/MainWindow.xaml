@@ -1,9 +1,9 @@
 <Window x:Class="InfiniteCanvasDesktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="无限画布桌面端" Height="760" Width="940" MinHeight="680" MinWidth="820"
+        Title="无限画布桌面端" Height="650" Width="900" MinHeight="560" MinWidth="780"
         WindowStartupLocation="CenterScreen" Background="{StaticResource PageBackground}">
-    <Grid Margin="28">
+    <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -14,86 +14,209 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock Text="无限画布" FontSize="30" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                <TextBlock Text="Windows 桌面启动器 · 复用现有 Web 前端与 Edge 数据" Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" FontSize="13" />
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="无限画布" FontSize="25" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                <TextBlock Text="Windows 桌面启动器" Margin="0,4,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" />
             </StackPanel>
-            <Border Grid.Column="1" Background="#E7F6EC" CornerRadius="16" Padding="14,8" VerticalAlignment="Center">
+            <Border x:Name="StatusPill" Grid.Column="1" Background="{StaticResource StatusBackground}" CornerRadius="14" Padding="12,7" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse x:Name="StatusDot" Width="9" Height="9" Fill="#D97706" Margin="0,0,8,0" />
-                    <TextBlock x:Name="StatusText" Text="正在准备" Foreground="#237344" FontWeight="SemiBold" FontSize="13" />
+                    <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#D97706" Margin="0,0,7,0" />
+                    <TextBlock x:Name="StatusText" Text="正在准备" Foreground="{StaticResource StatusTextBrush}" FontWeight="SemiBold" FontSize="12" />
                 </StackPanel>
             </Border>
+            <Button Grid.Column="3" x:Name="OpenCanvasButton" Content="打开画布" Style="{StaticResource PrimaryButton}" Click="OpenCanvasButton_Click" IsEnabled="False" Padding="16,10" />
         </Grid>
 
-        <Grid Grid.Row="1" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="5*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="4*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="22">
-                <StackPanel>
-                    <TextBlock Text="API 配置" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                    <TextBlock Text="密钥由 Windows 凭据管理器保护，不写入脚本或普通配置文件。" TextWrapping="Wrap" Margin="0,6,0,20" Foreground="{StaticResource MutedBrush}" FontSize="12" />
-                    <TextBlock Text="Base URL" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="BaseUrlBox" ToolTip="例如 https://api.openai.com" />
-                    <TextBlock Text="API Key" Style="{StaticResource FieldLabel}" />
-                    <PasswordBox x:Name="ApiKeyBox" />
-                    <TextBlock Text="默认模型" Style="{StaticResource FieldLabel}" />
-                    <TextBox x:Name="ModelBox" ToolTip="例如 gpt-image-2" />
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Button x:Name="SaveConfigButton" Content="保存配置" Style="{StaticResource PrimaryButton}" Click="SaveConfigButton_Click" />
-                        <TextBlock x:Name="ConfigSavedText" VerticalAlignment="Center" Foreground="#15803D" FontSize="12" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="22">
-                <StackPanel>
-                    <TextBlock Text="服务状态" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                    <Grid Margin="0,16,0,18">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="Vite 地址" Foreground="{StaticResource MutedBrush}" Margin="0,0,18,10" FontSize="12" />
-                        <TextBlock x:Name="ViteUrlText" Grid.Column="1" Text="http://localhost:3000" Margin="0,0,0,9" />
-                        <TextBlock Grid.Row="1" Text="Vite 进程" Foreground="{StaticResource MutedBrush}" Margin="0,0,18,10" FontSize="12" />
-                        <TextBlock x:Name="ProcessText" Grid.Row="1" Grid.Column="1" Text="未启动" Margin="0,0,0,9" />
-                        <TextBlock Grid.Row="2" Text="管理端口" Foreground="{StaticResource MutedBrush}" Margin="0,0,18,10" FontSize="12" />
-                        <TextBlock x:Name="BridgePortText" Grid.Row="2" Grid.Column="1" Text="-" Margin="0,0,0,9" />
-                        <TextBlock Grid.Row="3" Text="数据目录" Foreground="{StaticResource MutedBrush}" Margin="0,0,18,0" FontSize="12" />
-                        <TextBlock x:Name="DataPathText" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" />
-                    </Grid>
-                    <WrapPanel>
-                        <Button x:Name="OpenCanvasButton" Content="打开画布" Style="{StaticResource PrimaryButton}" Click="OpenCanvasButton_Click" IsEnabled="False" />
-                        <Button x:Name="RestartButton" Content="重新启动服务" Click="RestartButton_Click" IsEnabled="False" />
-                        <Button Content="打开日志目录" Click="OpenLogsButton_Click" />
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <Border Grid.Row="2" Background="#1B2028" CornerRadius="12" Padding="18">
+        <Border Grid.Row="1" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,18">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <TextBlock Text="运行日志" Foreground="#F5F7FA" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12" />
-                <TextBox x:Name="LogBox" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                         Background="#1B2028" Foreground="#D8DEE8" BorderThickness="0" FontFamily="Cascadia Mono,Consolas" FontSize="12" Padding="0" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="ChannelsNavButton" Content="配置渠道" Click="BackToHomeButton_Click" Background="{StaticResource SelectedTabBackground}" BorderThickness="0" Padding="13,8" />
+                <TextBlock Grid.Column="1" Text="桌面 API 配置" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                <Button x:Name="ServiceNavButton" Grid.Column="2" Content="服务与日志" Click="ServiceDetailsButton_Click" BorderThickness="0" Padding="12,7" />
             </Grid>
         </Border>
+
+        <Grid Grid.Row="2">
+            <Border x:Name="HomeView" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="24">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="我的渠道" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <TextBlock Text="查看画布内已保存的渠道和模型，需要时编辑主渠道" Margin="0,5,0,18" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="编辑主渠道" Click="EditConfigButton_Click" Padding="12,7" VerticalAlignment="Top" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="ChannelsList">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SoftPanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="38" Height="38" CornerRadius="11" Background="{StaticResource PrimaryBrush}" VerticalAlignment="Top">
+                                                <TextBlock Text="✦" Foreground="White" FontSize="21" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="12,0,18,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                                <TextBlock Text="{Binding BaseUrl}" Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding BaseUrl}" />
+                                                <WrapPanel Margin="0,10,0,0">
+                                                    <Border Background="{StaticResource SelectedTabBackground}" CornerRadius="10" Padding="8,4" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding ModelSummary}" Foreground="{StaticResource PrimaryBrush}" FontSize="11" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding CredentialText}" Foreground="{StaticResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
+                                                </WrapPanel>
+                                                <TextBlock Text="模型列表" Margin="0,14,0,5" Foreground="{StaticResource MutedBrush}" FontSize="11" />
+                                                <ItemsControl ItemsSource="{Binding Models}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,2,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="12,0,0,0" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <StackPanel Grid.Row="2" Margin="0,18,0,0">
+                        <TextBlock x:Name="HomeNoticeText" TextWrapping="Wrap" Foreground="#15803D" FontSize="12" Margin="0,0,0,8" />
+                        <TextBlock Text="渠道与模型列表来自画布内配置；桌面端只展示不含密钥的同步快照。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <TextBlock Text="API Key 由 Windows 凭据管理器保存，列表不展示密钥。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border x:Name="ServiceDetailsView" Visibility="Collapsed" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="24">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="服务与日志" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <TextBlock x:Name="ServiceStatusText" Text="正在准备" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,6,12,0" />
+                            <CheckBox x:Name="AutoOpenCanvasCheckBox" Content="启动时自动打开画布" IsChecked="True" Foreground="{StaticResource TextBrush}" FontSize="12" Margin="0,10,0,0" Checked="AutoOpenCanvasCheckBox_Changed" Unchecked="AutoOpenCanvasCheckBox_Changed" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="返回列表" Click="BackToHomeButton_Click" Padding="12,7" Margin="0" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,20,0,0">
+                        <StackPanel>
+                            <Border Background="{StaticResource SoftPanelBackground}" CornerRadius="10" Padding="16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="110" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="画布地址" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="ViteUrlText" Grid.Column="1" Text="http://localhost:3000" FontSize="12" Margin="0,0,0,14" />
+                                    <TextBlock Grid.Row="1" Text="服务进程" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="ProcessText" Grid.Row="1" Grid.Column="1" Text="未启动" FontSize="12" Margin="0,0,0,14" />
+                                    <TextBlock Grid.Row="2" Text="管理端口" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="BridgePortText" Grid.Row="2" Grid.Column="1" Text="-" FontSize="12" Margin="0,0,0,14" />
+                                    <TextBlock Grid.Row="3" Text="数据目录" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock x:Name="DataPathText" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" FontSize="12" />
+                                </Grid>
+                            </Border>
+                            <WrapPanel Margin="0,18,0,0">
+                                <Button Content="查看运行日志" Click="ShowDiagnosticsButton_Click" />
+                                <Button Content="打开日志目录" Click="OpenLogsButton_Click" />
+                                <Button x:Name="RestartButton" Content="重启服务" Click="RestartButton_Click" IsEnabled="False" />
+                            </WrapPanel>
+                            <TextBlock Text="关闭启动器会隐藏到托盘，服务继续运行；结束服务请在托盘菜单选择退出。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,18,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border x:Name="EditView" Visibility="Collapsed" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="24">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="配置渠道" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <TextBlock Text="常用配置保存在桌面端，密钥由 Windows 凭据管理器保护。" Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="返回列表" HorizontalAlignment="Right" Click="BackToHomeButton_Click" Padding="12,7" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,24,0,18">
+                        <StackPanel MaxWidth="620" HorizontalAlignment="Stretch">
+                            <TextBlock Text="服务地址" Style="{StaticResource FieldLabel}" />
+                            <TextBox x:Name="BaseUrlBox" ToolTip="例如 https://api.openai.com" />
+                            <TextBlock Text="API Key" Style="{StaticResource FieldLabel}" />
+                            <PasswordBox x:Name="ApiKeyBox" />
+                            <Expander x:Name="ModelSettingsExpander" Header="模型配置" IsExpanded="False" Margin="0,4,0,0" Foreground="{StaticResource TextBrush}">
+                                <StackPanel Margin="0,14,0,0">
+                                    <TextBlock Text="默认模型" Style="{StaticResource FieldLabel}" />
+                                    <TextBox x:Name="ModelBox" ToolTip="例如 gpt-image-2" />
+                                    <TextBlock Text="完整渠道、模型和能力分类请在画布内配置；这里编辑主渠道的兼容设置。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Expander>
+                            <TextBlock Text="保存不会自动更新已打开的画布配置。" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,18,0,0" />
+                            <TextBlock x:Name="ConfigErrorText" Foreground="#B91C1C" FontSize="12" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button x:Name="SaveConfigButton" Content="保存并返回" Style="{StaticResource PrimaryButton}" Click="SaveConfigButton_Click" />
+                        <Button Content="取消" Click="BackToHomeButton_Click" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border x:Name="DiagnosticsPanel" Visibility="Collapsed" Background="#1B2028" CornerRadius="12" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="运行日志" Foreground="#F5F7FA" FontSize="15" FontWeight="SemiBold" />
+                        <Button Grid.Column="1" Content="返回服务详情" HorizontalAlignment="Right" Click="ServiceDetailsButton_Click" Padding="12,7" />
+                    </Grid>
+                    <TextBox x:Name="LogBox" Grid.Row="1" Margin="0,12,0,0" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             Background="#1B2028" Foreground="#D8DEE8" BorderThickness="0" FontFamily="Cascadia Mono,Consolas" FontSize="12" Padding="0" />
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

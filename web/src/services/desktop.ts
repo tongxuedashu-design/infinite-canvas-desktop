@@ -1,7 +1,21 @@
 import type { AiConfig, ModelChannel } from "@/stores/use-config-store";
 
 type DesktopSession = { bridgeUrl: string; token: string };
-type DesktopApiConfig = { baseUrl: string; apiKey: string; model: string };
+export type DesktopApiConfig = { baseUrl: string; apiKey: string; model: string };
+export type DesktopConfigurationSnapshot = {
+    schemaVersion: number;
+    channels: DesktopChannelSnapshot[];
+    selectedModels: Record<string, string>;
+    localProxy?: { enabled: boolean; url: string };
+};
+export type DesktopChannelSnapshot = {
+    id: string;
+    name: string;
+    baseUrl: string;
+    apiFormat: string;
+    models: DesktopModelSnapshot[];
+};
+export type DesktopModelSnapshot = { name: string; capability: string; script?: string };
 type DesktopCredentialResponse = { channels: Record<string, string> };
 
 const SESSION_KEY = "infinite-canvas:desktop-session";
@@ -39,18 +53,100 @@ export function isDesktopApp() {
 }
 
 export async function loadDesktopApiConfig() {
-    return desktopRequest<DesktopApiConfig>("/api/config");
+    const value = await desktopRequest<Record<string, unknown>>("/api/config");
+    return {
+        baseUrl: readString(value, "baseUrl", "BaseUrl"),
+        apiKey: readString(value, "apiKey", "ApiKey"),
+        model: readString(value, "model", "Model"),
+    } satisfies DesktopApiConfig;
 }
 
 export async function saveDesktopApiConfig(config: DesktopApiConfig) {
     await desktopRequest("/api/config", { method: "POST", body: JSON.stringify(config) });
 }
 
+export async function loadDesktopConfigurationSnapshot() {
+    const value = await desktopRequest<unknown>("/api/config/snapshot");
+    return normalizeDesktopConfigurationSnapshot(value);
+}
+
+export function normalizeDesktopConfigurationSnapshot(value: unknown): DesktopConfigurationSnapshot | null {
+    if (!value || typeof value !== "object") return null;
+    const root = value as Record<string, unknown>;
+    const rawChannels = readValue(root, "channels", "Channels");
+    const rawSelectedModels = readValue(root, "selectedModels", "SelectedModels");
+    const rawLocalProxy = readValue(root, "localProxy", "LocalProxy");
+    const channels = Array.isArray(rawChannels)
+        ? rawChannels.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object")).map((channel) => {
+            const rawModels = readValue(channel, "models", "Models");
+            return {
+                id: readString(channel, "id", "Id"),
+                name: readString(channel, "name", "Name"),
+                baseUrl: readString(channel, "baseUrl", "BaseUrl"),
+                apiFormat: readString(channel, "apiFormat", "ApiFormat"),
+                models: Array.isArray(rawModels)
+                    ? rawModels.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object")).map((model) => ({
+                        name: readString(model, "name", "Name"),
+                        capability: readString(model, "capability", "Capability"),
+                        script: readOptionalString(model, "script", "Script"),
+                    }))
+                    : [],
+            };
+        })
+        : [];
+    const selectedModels: Record<string, string> = {};
+    if (rawSelectedModels && typeof rawSelectedModels === "object") {
+        const selected = rawSelectedModels as Record<string, unknown>;
+        for (const key of ["default", "image", "video", "text", "audio"]) {
+            const valueForKey = readOptionalString(selected, key, key[0].toUpperCase() + key.slice(1));
+            if (valueForKey) selectedModels[key] = valueForKey;
+        }
+    }
+    const localProxy = rawLocalProxy && typeof rawLocalProxy === "object"
+        ? { enabled: Boolean(readValue(rawLocalProxy as Record<string, unknown>, "enabled", "Enabled")), url: readString(rawLocalProxy as Record<string, unknown>, "url", "Url") }
+        : undefined;
+    return {
+        schemaVersion: Number(readValue(root, "schemaVersion", "SchemaVersion") || 1),
+        channels,
+        selectedModels,
+        ...(localProxy ? { localProxy } : {}),
+    };
+}
+
+export async function saveDesktopConfigurationSnapshot(snapshot: DesktopConfigurationSnapshot) {
+    await desktopRequest("/api/config/snapshot", { method: "POST", body: JSON.stringify(snapshot) });
+}
+
+export function createDesktopConfigurationSnapshot(config: AiConfig): DesktopConfigurationSnapshot {
+    return {
+        schemaVersion: 1,
+        channels: config.channels.map(({ id, name, baseUrl, apiFormat, models }) => ({
+            id,
+            name,
+            baseUrl,
+            apiFormat,
+            models: models.map(({ name: modelName, capability, script }) => ({ name: modelName, capability, script: script || undefined })),
+        })),
+        selectedModels: {
+            default: config.model,
+            image: config.imageModel,
+            video: config.videoModel,
+            text: config.textModel,
+            audio: config.audioModel,
+        },
+        localProxy: { enabled: config.proxyEnabled, url: config.proxyUrl },
+    };
+}
+
 export async function hydrateDesktopCredentials(channels: ModelChannel[]) {
-    return desktopRequest<DesktopCredentialResponse>("/api/credentials/hydrate", {
+    const value = await desktopRequest<Record<string, unknown>>("/api/credentials/hydrate", {
         method: "POST",
         body: JSON.stringify({ channels: channelCredentials(channels) }),
     });
+    const rawChannels = readValue(value, "channels", "Channels");
+    return {
+        channels: rawChannels && typeof rawChannels === "object" ? rawChannels as Record<string, string> : {},
+    } satisfies DesktopCredentialResponse;
 }
 
 export async function syncDesktopCredentials(config: AiConfig) {
@@ -58,6 +154,15 @@ export async function syncDesktopCredentials(config: AiConfig) {
         method: "POST",
         body: JSON.stringify({ channels: channelCredentials(config.channels) }),
     });
+}
+
+/** Persist the complete canvas configuration explicitly before the user leaves the configuration UI. */
+export async function saveDesktopConfiguration(config: AiConfig, primaryModel: string) {
+    const primary = config.channels[0];
+    const requests = [syncDesktopCredentials(config)];
+    if (primary) requests.push(saveDesktopApiConfig({ baseUrl: primary.baseUrl, apiKey: primary.apiKey, model: primaryModel }));
+    requests.push(saveDesktopConfigurationSnapshot(createDesktopConfigurationSnapshot(config)));
+    await Promise.all(requests);
 }
 
 export type DesktopStatus = { running: boolean; vitePort?: number; bridgePort?: number };
@@ -126,6 +231,23 @@ function desktopParamsFromLocation() {
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
     const params = new URLSearchParams(hash);
     return params.has("desktopBridge") && params.has("desktopToken");
+}
+
+function readValue(value: Record<string, unknown>, ...keys: string[]) {
+    for (const key of keys) {
+        if (key in value) return value[key];
+    }
+    return undefined;
+}
+
+function readString(value: Record<string, unknown>, ...keys: string[]) {
+    const result = readValue(value, ...keys);
+    return typeof result === "string" ? result : "";
+}
+
+function readOptionalString(value: Record<string, unknown>, ...keys: string[]) {
+    const result = readValue(value, ...keys);
+    return typeof result === "string" && result ? result : undefined;
 }
 
 function isLoopbackUrl(value: string) {

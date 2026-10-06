@@ -15,10 +15,13 @@ public sealed class WindowsCredentialStore
 
     public WindowsCredentialStore(string dataDirectory)
     {
+        DataDirectory = dataDirectory;
         Directory.CreateDirectory(dataDirectory);
         _settingsPath = Path.Combine(dataDirectory, "settings.json");
         _credentialIndexPath = Path.Combine(dataDirectory, "credential-index.json");
     }
+
+    public string DataDirectory { get; }
 
     public ApiConfiguration Load(bool useDefaults = true)
     {
@@ -34,17 +37,40 @@ public sealed class WindowsCredentialStore
 
     public void Save(ApiConfiguration configuration)
     {
-        if (!string.IsNullOrWhiteSpace(configuration.BaseUrl))
+        var baseUrl = configuration.BaseUrl?.Trim() ?? string.Empty;
+        var model = configuration.Model?.Trim() ?? string.Empty;
+        var apiKey = configuration.ApiKey ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(baseUrl))
         {
-            if (!Uri.TryCreate(configuration.BaseUrl, UriKind.Absolute, out var uri))
+            if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
                 throw new InvalidOperationException("Base URL 不是有效地址。");
             if (uri.Scheme is not ("http" or "https"))
                 throw new InvalidOperationException("Base URL 必须使用 http:// 或 https://。");
         }
 
-        var metadata = new ApiConfigurationMetadata(configuration.BaseUrl.Trim(), configuration.Model.Trim());
-        File.WriteAllText(_settingsPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }));
-        WriteCredential(PrimaryCredentialTarget, configuration.ApiKey);
+        var metadata = new ApiConfigurationMetadata(baseUrl, model);
+        var serialized = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
+        var previousApiKey = ReadCredential();
+        var temporaryPath = _settingsPath + ".tmp";
+        try
+        {
+            WriteTextWithFlush(temporaryPath, serialized);
+            WriteCredential(PrimaryCredentialTarget, apiKey);
+            ReplaceSettingsFile(temporaryPath);
+        }
+        catch
+        {
+            TryDelete(temporaryPath);
+            try
+            {
+                WriteCredential(PrimaryCredentialTarget, previousApiKey);
+            }
+            catch
+            {
+                // Preserve the original failure while leaving the best possible credential rollback.
+            }
+            throw;
+        }
     }
 
     public IReadOnlyDictionary<string, string> HydrateChannels(IEnumerable<ChannelCredential> channels)
@@ -88,8 +114,39 @@ public sealed class WindowsCredentialStore
         WriteCredentialIndex(currentIds);
     }
 
-    private static string ReadCredential(string target = PrimaryCredentialTarget)
+    private static void WriteTextWithFlush(string path, string content)
     {
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+        writer.Write(content);
+        writer.Flush();
+        stream.Flush(true);
+    }
+
+    private void ReplaceSettingsFile(string temporaryPath)
+    {
+        if (File.Exists(_settingsPath))
+            File.Replace(temporaryPath, _settingsPath, destinationBackupFileName: null);
+        else
+            File.Move(temporaryPath, _settingsPath);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch
+        {
+        }
+    }
+
+    private string ReadCredential() => ReadCredential(PrimaryCredentialTarget);
+
+    private static string ReadCredential(string target)
+    {
+        if (!OperatingSystem.IsWindows()) return string.Empty;
         if (!CredRead(target, CredentialType.Generic, 0, out var credentialPointer))
         {
             var error = Marshal.GetLastWin32Error();
@@ -113,6 +170,7 @@ public sealed class WindowsCredentialStore
 
     private static void WriteCredential(string target, string secret)
     {
+        if (!OperatingSystem.IsWindows()) return;
         if (string.IsNullOrEmpty(secret))
         {
             if (!CredDelete(target, CredentialType.Generic, 0))
@@ -146,19 +204,11 @@ public sealed class WindowsCredentialStore
         }
     }
 
-    private static string NormalizeChannelId(string id)
-    {
-        var value = id.Trim();
-        if (string.IsNullOrEmpty(value) || value.Length > 128 || value.Any(character => char.IsControl(character)))
-            throw new InvalidOperationException("渠道标识无效。");
-        return value;
-    }
-
     private HashSet<string> ReadCredentialIndex()
     {
+        if (!File.Exists(_credentialIndexPath)) return [];
         try
         {
-            if (!File.Exists(_credentialIndexPath)) return [];
             return JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(_credentialIndexPath)) ?? [];
         }
         catch
@@ -167,13 +217,29 @@ public sealed class WindowsCredentialStore
         }
     }
 
-    private void WriteCredentialIndex(IEnumerable<string> channelIds)
+    private void WriteCredentialIndex(IEnumerable<string> ids)
     {
-        var normalized = channelIds.Select(NormalizeChannelId).OrderBy(id => id).ToArray();
-        File.WriteAllText(_credentialIndexPath, JsonSerializer.Serialize(normalized, new JsonSerializerOptions { WriteIndented = true }));
+        var temporaryPath = _credentialIndexPath + ".tmp";
+        try
+        {
+            var json = JsonSerializer.Serialize(ids.Order(), new JsonSerializerOptions { WriteIndented = true });
+            WriteTextWithFlush(temporaryPath, json);
+            File.Move(temporaryPath, _credentialIndexPath, overwrite: true);
+        }
+        catch
+        {
+            TryDelete(temporaryPath);
+            throw;
+        }
     }
 
-    private sealed record ApiConfigurationMetadata(string? BaseUrl, string? Model);
+    private static string NormalizeChannelId(string id)
+    {
+        var value = id.Trim();
+        if (string.IsNullOrEmpty(value) || value.Length > 128 || value.Any(character => char.IsControl(character)))
+            throw new InvalidOperationException("渠道标识无效。");
+        return value;
+    }
 
     private enum CredentialType : uint { Generic = 1 }
     private enum CredentialPersist : uint { LocalMachine = 2 }
@@ -208,4 +274,5 @@ public sealed class WindowsCredentialStore
     private static extern void CredFree(IntPtr buffer);
 }
 
+public sealed record ApiConfigurationMetadata(string? BaseUrl, string? Model);
 public sealed record ChannelCredential(string Id, string ApiKey);

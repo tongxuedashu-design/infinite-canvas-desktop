@@ -2,7 +2,7 @@ import localforage from "localforage";
 
 import { nanoid } from "nanoid";
 import i18n from "@/i18n";
-import { withLocalProxy } from "@/stores/use-config-store";
+import { withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { createImageThumbnail } from "@/lib/image-thumbnail";
 
 export type UploadedImage = {
@@ -32,7 +32,7 @@ const IMAGE_TIMEOUT_ERROR = "ImageTimeoutError";
 
 type StoredImagePreview = { version: number; blob?: Blob };
 
-type ImageReadOptions = { signal?: AbortSignal };
+type ImageReadOptions = { signal?: AbortSignal; proxy?: Pick<AiConfig, "proxyEnabled" | "proxyUrl"> };
 
 export async function uploadImage(input: string | Blob, options?: ImageReadOptions): Promise<UploadedImage> {
     if (typeof input !== "string") return storeImage(input, options);
@@ -79,7 +79,7 @@ async function fetchImageBlob(url: string, options?: ImageReadOptions) {
         controller.abort();
     }, IMAGE_DOWNLOAD_TIMEOUT_MS);
     try {
-        const response = await fetch(withLocalProxy(url), { signal: controller.signal });
+        const response = await fetch(withLocalProxy(url, options?.proxy), { signal: controller.signal });
         if (!response.ok) throw namedError(IMAGE_RESPONSE_ERROR);
         return await response.blob();
     } catch (error) {

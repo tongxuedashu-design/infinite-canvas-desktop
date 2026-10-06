@@ -10,7 +10,7 @@ import { ModelSelectModal } from "./model-select-modal";
 
 type ScriptTarget = { name: string; capability: ModelCapability; value: string };
 
-export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: boolean; channel: ModelChannel | null; onSave: (channel: ModelChannel) => void; onClose: () => void }) {
+export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: boolean; channel: ModelChannel | null; onSave: (channel: ModelChannel) => void | Promise<void>; onClose: () => void }) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState<ModelChannel | null>(channel);
     const [selectOpen, setSelectOpen] = useState(false);
@@ -45,8 +45,8 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
     const setScript = (name: string, script: string) => setModels(draft.models.map((model) => (model.name === name ? { ...model, script: script || undefined } : model)));
     const removeModel = (name: string) => setModels(draft.models.filter((model) => model.name !== name));
 
-    const save = () => {
-        onSave({ ...draft, name: draft.name.trim() || t("config.channels.unnamed"), models: normalizeChannelModels(draft.models) });
+    const save = async () => {
+        await onSave({ ...draft, name: draft.name.trim() || t("config.channels.unnamed"), models: normalizeChannelModels(draft.models) });
         onClose();
     };
 
@@ -60,7 +60,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
             extra={
                 <Space>
                     <Button onClick={onClose}>{t("common.cancel")}</Button>
-                    <Button type="primary" onClick={save}>
+                    <Button type="primary" onClick={() => void save()}>
                         {t("common.save")}
                     </Button>
                 </Space>

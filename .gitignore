@@ -12,6 +12,13 @@ web/dist
 
 **/dist
 web/public/plugins
+
+# Local desktop runtime data and credentials
+EdgeData/
+**/EdgeData/
+**/configuration-snapshot.json
+**/preferences.json
+**/credential-index.json
 desktop/bin/
 desktop/obj/
 desktop/publish/

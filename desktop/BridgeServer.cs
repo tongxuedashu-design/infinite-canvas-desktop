@@ -12,13 +12,13 @@ namespace InfiniteCanvasDesktop;
 
 public sealed class BridgeServer : IAsyncDisposable
 {
-    private readonly WindowsCredentialStore _credentialStore;
+    private readonly IConfigurationCoordinator _configuration;
     private readonly Func<BridgeStatusResponse>? _statusProvider;
     private WebApplication? _application;
 
-    public BridgeServer(WindowsCredentialStore credentialStore, Func<BridgeStatusResponse>? statusProvider = null)
+    public BridgeServer(IConfigurationCoordinator configuration, Func<BridgeStatusResponse>? statusProvider = null)
     {
-        _credentialStore = credentialStore;
+        _configuration = configuration;
         _statusProvider = statusProvider;
         Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
     }
@@ -31,6 +31,11 @@ public sealed class BridgeServer : IAsyncDisposable
     {
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = [] });
         builder.Logging.ClearProviders();
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.PropertyNameCaseInsensitive = true;
+        });
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
         var app = builder.Build();
 
@@ -60,17 +65,23 @@ public sealed class BridgeServer : IAsyncDisposable
             await next();
         });
 
-        app.MapGet("/api/config", () => Results.Json(_credentialStore.Load(useDefaults: false)));
-        app.MapPost("/api/config", (ApiConfiguration configuration) =>
+        app.MapGet(DesktopConfigurationContract.ConfigurationEndpoint, () => Results.Json(_configuration.Load(useDefaults: false)));
+        app.MapPost(DesktopConfigurationContract.ConfigurationEndpoint, (ApiConfiguration configuration) =>
         {
-            _credentialStore.Save(configuration);
+            _configuration.Save(configuration);
             return Results.NoContent();
         });
-        app.MapPost("/api/credentials/hydrate", (ChannelCredentialsRequest request) =>
-            Results.Json(new ChannelCredentialsResponse(_credentialStore.HydrateChannels(request.Channels))));
-        app.MapPost("/api/credentials/sync", (ChannelCredentialsRequest request) =>
+        app.MapGet(DesktopConfigurationContract.ConfigurationSnapshotEndpoint, () => Results.Json(_configuration.LoadSnapshot()));
+        app.MapPost(DesktopConfigurationContract.ConfigurationSnapshotEndpoint, (DesktopConfigurationSnapshot snapshot) =>
         {
-            _credentialStore.SyncChannels(request.Channels);
+            _configuration.SaveSnapshot(snapshot);
+            return Results.NoContent();
+        });
+        app.MapPost(DesktopConfigurationContract.HydrateCredentialsEndpoint, (ChannelCredentialsRequest request) =>
+            Results.Json(new ChannelCredentialsResponse(_configuration.HydrateChannels(request.Channels))));
+        app.MapPost(DesktopConfigurationContract.SyncCredentialsEndpoint, (ChannelCredentialsRequest request) =>
+        {
+            _configuration.SyncChannels(request.Channels);
             return Results.NoContent();
         });
         app.MapGet("/api/status", () => Results.Json(_statusProvider?.Invoke() ?? new BridgeStatusResponse(true, 3000, null, Port, "running", "服务运行中")));

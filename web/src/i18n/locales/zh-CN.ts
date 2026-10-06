@@ -390,6 +390,7 @@ export default {
             channelHint: "渠道和 WebDAV 仍填写真实地址，不要填代理地址；关闭开关即可恢复直连。",
             test: "测试连接",
             available: "本地代理连接正常（{{proxy}}）",
+            autoDisabled: "本地代理未运行，已自动切换为直连。需要代理时，请先启动代理后再打开开关。",
             missingUrl: "请先填写本地代理地址。",
             unreachable: "无法连接本地代理，请确认命令已启动且地址填写正确。",
         },

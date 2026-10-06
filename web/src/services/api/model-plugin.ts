@@ -40,8 +40,8 @@ function pluginHeaders(extra?: Record<string, string>, hasJsonBody = false): Rec
 }
 
 function pluginUrl(config: AiConfig, path: string) {
-    if (/^https?:/i.test(path)) return withLocalProxy(path);
-    return buildApiUrl(config.baseUrl, path.startsWith("/") ? path : `/${path}`);
+    if (/^https?:/i.test(path)) return withLocalProxy(path, config);
+    return buildApiUrl(config.baseUrl, path.startsWith("/") ? path : `/${path}`, config);
 }
 
 function createPluginHttp(config: AiConfig, options?: RequestOptions): PluginHttp {
