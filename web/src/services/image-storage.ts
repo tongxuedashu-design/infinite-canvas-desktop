@@ -34,16 +34,26 @@ type StoredImagePreview = { version: number; blob?: Blob };
 
 type ImageReadOptions = { signal?: AbortSignal; proxy?: Pick<AiConfig, "proxyEnabled" | "proxyUrl"> };
 
+function imageStorageDiagnostic(event: string, details: Record<string, unknown>) {
+    if (import.meta.env.DEV) console.info("[image-storage-diagnostic]", event, details);
+}
+
 export async function uploadImage(input: string | Blob, options?: ImageReadOptions): Promise<UploadedImage> {
+    imageStorageDiagnostic("upload-start", { source: typeof input === "string" ? (input.startsWith("data:") ? "data" : /^https?:\/\//i.test(input) ? "url" : "other") : "blob" });
     if (typeof input !== "string") return storeImage(input, options);
 
     let blob: Blob;
     try {
         blob = await fetchImageBlob(input, options);
     } catch (error) {
+        imageStorageDiagnostic("download-failed", { name: error instanceof Error ? error.name : "unknown" });
         if (options?.signal?.aborted || isNamedError(error, IMAGE_RESPONSE_ERROR) || isNamedError(error, IMAGE_TIMEOUT_ERROR) || !/^https?:\/\//i.test(input)) throw error;
         const meta = await loadImageMeta(input, options, IMAGE_REMOTE_LOAD_TIMEOUT_MS);
-        if (!meta) throw error;
+        if (!meta) {
+            imageStorageDiagnostic("remote-decode-failed", {});
+            throw error;
+        }
+        imageStorageDiagnostic("remote-fallback", { width: meta.width, height: meta.height });
         return { url: input, width: meta.width, height: meta.height, bytes: 0, mimeType: "" };
     }
     return storeImage(blob, options);

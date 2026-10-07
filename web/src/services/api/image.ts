@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import i18n from "@/i18n";
-import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, withLocalProxy, useConfigStore, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
+import { buildApiUrl, resolveModelForCapability, resolveModelRequestConfig, resolveModelScript, withLocalProxy, useConfigStore, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import { normalizePluginImages, runModelPlugin } from "./model-plugin";
 import { nanoid } from "nanoid";
 import { dataUrlToFile } from "@/lib/image-utils";
@@ -71,12 +71,7 @@ type ResponseApiPayload = {
 };
 type ResponseStreamState = { buffer: string; text: string; payload?: ResponseApiPayload; error?: string };
 
-type ImageApiResponse = {
-    data?: Array<Record<string, unknown>>;
-    error?: { message?: string };
-    code?: number;
-    msg?: string;
-};
+type ImageApiResponse = Record<string, unknown>;
 type GeminiPart = {
     text?: string;
     inlineData?: { mimeType?: string; data?: string };
@@ -96,6 +91,10 @@ type GeminiPayload = {
 };
 type GeminiStreamState = { buffer: string; text: string; toolCalls: ResponseToolCall[]; error?: string };
 type RequestOptions = { signal?: AbortSignal };
+
+function imageDiagnostic(event: string, details: Record<string, unknown>) {
+    if (import.meta.env.DEV) console.info("[image-diagnostic]", event, details);
+}
 
 const QUALITY_BASE: Record<string, number> = {
     low: 1024,
@@ -242,39 +241,150 @@ function supportsGeminiImageSize(model: string) {
     return value.includes("gemini-3") || value.includes("3.1") || value.includes("3-pro");
 }
 
-function resolveImageSource(item: Record<string, unknown>) {
-    if (typeof item.b64_json === "string" && item.b64_json) {
-        return `data:image/png;base64,${item.b64_json}`;
+function resolveImageSource(item: unknown) {
+    if (typeof item === "string" && item) {
+        const value = item.trim();
+        if (value.startsWith("data:") || /^https?:\/\//i.test(value)) return value;
+        if (/^[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length >= 8 && value.length % 4 === 0) return `data:image/png;base64,${value}`;
+        return null;
     }
-    if (typeof item.url === "string" && item.url) {
-        return item.url;
+    if (!item || typeof item !== "object") return null;
+    const value = item as Record<string, unknown>;
+    const base64 = [value.b64_json, value.base64, value.base64_image, value.image_data].find((candidate): candidate is string => typeof candidate === "string" && Boolean(candidate.trim()));
+    if (base64) {
+        const trimmed = base64.trim();
+        return trimmed.startsWith("data:") ? trimmed : `data:image/png;base64,${trimmed}`;
+    }
+    const url = [value.url, value.image_url].find((candidate): candidate is string => typeof candidate === "string" && Boolean(candidate.trim()));
+    if (url) {
+        return url.trim();
     }
     return null;
 }
 
-function parseImagePayload(payload: ImageApiResponse) {
-    if (typeof payload.code === "number" && payload.code !== 0) {
-        throw new Error(payload.msg || apiText("requestFailed"));
+function parseImagePayload(payload: unknown) {
+    const decoded = decodeImagePayload(payload);
+    const normalized = decoded && typeof decoded === "object" && !Array.isArray(decoded) ? decoded as ImageApiResponse : undefined;
+    if (normalized && typeof normalized.code === "number" && normalized.code !== 0) {
+        throw new Error(typeof normalized.msg === "string" ? normalized.msg : apiText("requestFailed"));
     }
-    // Support data, images, and results response fields used by different APIs.
-    const imageList = payload.data
-        || (payload as Record<string, unknown>).images as Array<Record<string, unknown>> | undefined
-        || (payload as Record<string, unknown>).results as Array<Record<string, unknown>> | undefined
-        || [];
-    const images = imageList
-        .map(resolveImageSource)
-        .filter((value): value is string => Boolean(value))
-        .map((dataUrl) => ({ id: nanoid(), dataUrl }));
+    const images = imageResultsFromItems(collectImageItems(decoded));
 
     if (images.length === 0) {
+        if (!normalized) throw new Error(apiText("requestFailed"));
         // Check whether the response contains data in an unrecognized format.
-        const rawKeys = Object.keys(payload).filter((k) => k !== "code" && k !== "msg" && k !== "error");
+        const rawKeys = Object.keys(normalized).filter((k) => k !== "code" && k !== "msg" && k !== "error");
         throw new Error(rawKeys.length > 0
             ? apiText("unknownImageResponse", { fields: rawKeys.join(", ") })
             : apiText("noImageReturned"));
     }
 
     return images;
+}
+
+function imageResultsFromItems(items: unknown[]) {
+    return items
+        .map(resolveImageSource)
+        .filter((value): value is string => Boolean(value))
+        .map((dataUrl) => ({ id: nanoid(), dataUrl }));
+}
+
+const IMAGE_PAYLOAD_FIELDS = ["data", "images", "results", "output", "result", "image", "response"] as const;
+
+function collectImageItems(value: unknown, depth = 0): unknown[] {
+    if (depth > 4) return [];
+    const decoded = decodeImagePayload(value);
+    if (resolveImageSource(decoded)) return [decoded];
+    if (Array.isArray(decoded)) return decoded.flatMap((item) => collectImageItems(item, depth + 1));
+    if (!decoded || typeof decoded !== "object") return [];
+    const record = decoded as Record<string, unknown>;
+    return IMAGE_PAYLOAD_FIELDS.flatMap((field) => record[field] === undefined ? [] : collectImageItems(record[field], depth + 1));
+}
+
+function decodeImagePayload(value: unknown): unknown {
+    if (typeof value !== "string") return value;
+    let current: unknown = value.trim();
+    for (let depth = 0; depth < 3 && typeof current === "string"; depth += 1) {
+        if (!current) return current;
+        try {
+            const parsed = JSON.parse(current);
+            if (parsed === current) return current;
+            current = parsed;
+        } catch {
+            break;
+        }
+    }
+    return current;
+}
+
+function parseImageEventStream(text: string) {
+    const completed: unknown[] = [];
+    const candidates: unknown[] = [];
+    for (const block of text.split(/\r?\n\r?\n/)) {
+        const lines = block.split(/\r?\n/);
+        const eventName = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+        const data = lines
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).replace(/^ /, ""))
+            .join("\n")
+            .trim();
+        if (!data || data === "[DONE]") continue;
+        let payload: unknown;
+        try {
+            payload = JSON.parse(data);
+        } catch {
+            continue;
+        }
+        const event = isRecord(payload) && eventName && !payload.type ? { ...payload, type: eventName } : payload;
+        if (isRecord(event) && (event.type === "error" || event.type === "image_generation.failed")) {
+            throw new Error(readApiErrorMessage(event) || apiText("requestFailed"));
+        }
+        if (collectImageItems(event).length === 0) continue;
+        if (isRecord(event) && event.type === "image_generation.completed") completed.push(event);
+        else candidates.push(event);
+    }
+    const selected = completed.length ? completed : candidates;
+    if (!selected.length) return null;
+    return imageResultsFromItems(selected.flatMap((event) => collectImageItems(event)));
+}
+
+function parseImageResponse(payload: unknown, contentType: string) {
+    if (contentType.toLowerCase().includes("text/event-stream") && typeof payload === "string") {
+        const streamed = parseImageEventStream(payload);
+        if (streamed?.length) return streamed;
+    }
+    return parseImagePayload(payload);
+}
+
+function responseFields(value: unknown) {
+    return value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
+}
+
+function responseDataCount(value: unknown) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
+    const record = value as Record<string, unknown>;
+    const data = decodeImagePayload(record.data);
+    return Array.isArray(data) ? data.length : data === undefined || data === null ? 0 : 1;
+}
+
+function responseShape(value: unknown) {
+    if (value === null || value === undefined) return { kind: "empty" };
+    if (typeof value === "string") {
+        const text = value.trim();
+        let shape = "text";
+        if (!text) shape = "empty-string";
+        else if (/^[{[]/.test(text)) shape = "json-string";
+        else if (text.startsWith("data:")) shape = "data-url";
+        else if (/^https?:\/\//i.test(text)) shape = "remote-url";
+        else if (/^[A-Za-z0-9+/]+={0,2}$/.test(text)) shape = "base64-string";
+        return { kind: "string", shape, length: text.length };
+    }
+    if (typeof Blob !== "undefined" && value instanceof Blob) return { kind: "blob", mimeType: value.type || "", bytes: value.size };
+    if (value instanceof ArrayBuffer) return { kind: "array-buffer", bytes: value.byteLength };
+    if (ArrayBuffer.isView(value)) return { kind: "typed-array", bytes: value.byteLength };
+    if (Array.isArray(value)) return { kind: "array", length: value.length };
+    if (typeof value === "object") return { kind: "object" };
+    return { kind: typeof value };
 }
 
 function readApiErrorMessage(value: unknown): string {
@@ -344,6 +454,16 @@ function withSystemPrompt(config: AiConfig, prompt: string) {
 
 function aiApiUrl(config: AiConfig, path: string) {
     return buildApiUrl(config.baseUrl, path, config);
+}
+
+function imageApiUrl(config: AiConfig, path: "/images/generations" | "/images/edits") {
+    const baseUrl = config.baseUrl.trim().replace(/\/+$/, "");
+    const queryIndex = baseUrl.search(/[?#]/);
+    const endpoint = queryIndex >= 0 ? baseUrl.slice(0, queryIndex) : baseUrl;
+    const query = queryIndex >= 0 ? baseUrl.slice(queryIndex) : "";
+    const siblingMatch = endpoint.match(/^(.*?)(\/images\/generations|\/images\/edits|\/chat\/completions|\/responses\/compact|\/responses)$/i);
+    if (siblingMatch) return withLocalProxy(`${siblingMatch[1]}${path}${query}`, config);
+    return aiApiUrl(config, path);
 }
 
 function aiHeaders(config: AiConfig, contentType?: string) {
@@ -725,9 +845,10 @@ function parseGeminiImagePayload(payload: GeminiPayload) {
 }
 
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions) {
-    const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
+    const selectedModel = resolveModelForCapability(config, config.model, "image");
+    const requestConfig = resolveModelRequestConfig(config, selectedModel);
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
-    const script = resolveModelScript(config, config.model || config.imageModel);
+    const script = resolveModelScript(config, selectedModel);
     if (script) {
         const quality = normalizeQuality(config.quality);
         const requestSize = resolveRequestSize(quality, config.size);
@@ -759,7 +880,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
     const background = normalizeBackground(config.background);
     try {
         const response = await axios.post<ImageApiResponse>(
-            aiApiUrl(requestConfig, "/images/generations"),
+            imageApiUrl(requestConfig, "/images/generations"),
             {
                 model: requestConfig.model,
                 prompt: withSystemPrompt(requestConfig, prompt),
@@ -772,23 +893,28 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
                 output_format: IMAGE_OUTPUT_FORMAT,
             },
             {
-                headers: aiHeaders(requestConfig, "application/json"),
+                headers: { ...aiHeaders(requestConfig, "application/json"), Accept: "application/json, text/event-stream" },
                 signal: options?.signal,
                 timeout: IMAGE_REQUEST_TIMEOUT_MS,
             },
         );
-        const images = await parseImagePayload(response.data);
+        imageDiagnostic("response", { status: response.status, contentType: response.headers?.["content-type"] || "", ...responseShape(response.data), fields: responseFields(response.data), dataCount: responseDataCount(response.data) });
+        const images = await parseImageResponse(response.data, String(response.headers?.["content-type"] || ""));
+        imageDiagnostic("parsed", { count: images.length, sources: images.map(({ dataUrl }) => (dataUrl.startsWith("data:") ? "data" : "url")) });
         return images;
     } catch (error) {
+        if (axios.isAxiosError(error)) imageDiagnostic("error", { status: error.response?.status, code: error.code, fields: error.response?.data && typeof error.response.data === "object" ? Object.keys(error.response.data) : [] });
+        else imageDiagnostic("error", { name: error instanceof Error ? error.name : "unknown" });
         throw new Error(readAxiosError(error, apiText("requestFailed")));
     }
 }
 
 export async function requestEdit(config: AiConfig, prompt: string, references: ReferenceImage[], options?: RequestOptions) {
-    const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
+    const selectedModel = resolveModelForCapability(config, config.model, "image");
+    const requestConfig = resolveModelRequestConfig(config, selectedModel);
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const requestPrompt = buildImageReferencePromptText(prompt, references);
-    const script = resolveModelScript(config, config.model || config.imageModel);
+    const script = resolveModelScript(config, selectedModel);
     if (script) {
         const quality = normalizeQuality(config.quality);
         const requestSize = resolveRequestSize(quality, config.size);
@@ -843,8 +969,9 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     files.forEach((file) => formData.append(imageField, file));
 
     try {
-        const response = await axios.post<ImageApiResponse>(aiApiUrl(requestConfig, "/images/edits"), formData, { headers: aiHeaders(requestConfig), signal: options?.signal, timeout: IMAGE_REQUEST_TIMEOUT_MS });
-        const images = await parseImagePayload(response.data);
+        const response = await axios.post<ImageApiResponse>(imageApiUrl(requestConfig, "/images/edits"), formData, { headers: { ...aiHeaders(requestConfig), Accept: "application/json, text/event-stream" }, signal: options?.signal, timeout: IMAGE_REQUEST_TIMEOUT_MS });
+        imageDiagnostic("edit-response", { status: response.status, contentType: response.headers?.["content-type"] || "", ...responseShape(response.data), fields: responseFields(response.data), dataCount: responseDataCount(response.data) });
+        const images = await parseImageResponse(response.data, String(response.headers?.["content-type"] || ""));
         return images;
     } catch (error) {
         throw new Error(readAxiosError(error, apiText("requestFailed")));
