@@ -31,7 +31,20 @@ if (Test-Path $OutputDirectory) {
 }
 New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
 Set-Content -LiteralPath (Join-Path $OutputDirectory '.infinite-canvas-portable') -Value 'portable' -Encoding ascii
-Copy-Item -LiteralPath (Join-Path $projectRoot 'VERSION'), (Join-Path $projectRoot 'CHANGELOG.md') -Destination $OutputDirectory
+$releaseFiles = @(
+    'VERSION',
+    'CHANGELOG.md',
+    'LICENSE',
+    'FIRST_RUN.md',
+    'ATTRIBUTIONS.md'
+)
+foreach ($releaseFile in $releaseFiles) {
+    $sourcePath = Join-Path $projectRoot $releaseFile
+    if (-not (Test-Path $sourcePath)) {
+        throw "Required release file not found: $sourcePath"
+    }
+    Copy-Item -LiteralPath $sourcePath -Destination $OutputDirectory
+}
 
 Copy-Item -LiteralPath $publishedExecutable -Destination (Join-Path $OutputDirectory 'InfiniteCanvasDesktop.exe')
 

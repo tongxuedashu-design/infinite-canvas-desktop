@@ -62,4 +62,4 @@ bun run dev
 - [本地 Canvas Agent（可选，未随便携包启动）](canvas-agent/README.md)
 - [待办事项](docs/content/docs/progress/todo.zh-CN.mdx)
 
-代码按 [MIT License](LICENSE) 发布，保留原有 Copyright (c) 2026 basketikun。MIT 允许使用、修改及商业分发，并要求随软件保留版权与许可文本。打包的 Node.js、.NET 和 npm 依赖遵循各自许可证；根目录 MIT 不替代它们的许可要求。归属及分发材料检查见 [发布交接](docs/windows-release.md)。
+代码按 [MIT License](LICENSE) 发布，保留上游原有 `Copyright (c) 2026 basketikun`。本项目是在 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas) 基础上的衍生版本；本仓库新增的 Windows 启动器、适配代码和文档属于后续修改，具体归属边界见 [归属说明](ATTRIBUTIONS.md)。MIT 允许使用、修改及商业分发，并要求随软件保留版权与许可文本。打包的 Node.js、.NET 和 npm 依赖遵循各自许可证；根目录 MIT 不替代它们的许可要求。归属及分发材料检查见 [发布交接](docs/windows-release.md)。
