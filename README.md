@@ -19,7 +19,7 @@
 
 ## 快速开始：Windows 便携包
 
-当前发行路线为 **Windows x64 完整便携包**，暂不提供正式安装器或自动更新。发布附件以本仓库的 [Releases](https://github.com/tongxuedashu-design/infinite-canvas-desktop/releases) 为准；没有附件时请勿把 GitHub 源码 ZIP 当作可运行包。
+当前发行路线为 **Windows x64 完整便携包**，暂不提供正式安装器或自动更新。发布附件以本仓库的 [Releases](https://github.com/tongxuedashu-design/infinite-canvas-desktop/releases) 为准；没有附件时请勿把 GitHub 源码 ZIP 当作可运行包。下载后请核对 Release 页面提供的 SHA-256。
 
 1. 安装 [Microsoft Edge](https://www.microsoft.com/edge)。用户电脑不需要另装 Node.js 或 .NET。
 2. 下载完整便携 ZIP，全部解压到当前用户可写的本地目录，例如 D:\Apps\InfiniteCanvas；不要直接在压缩包内运行。
