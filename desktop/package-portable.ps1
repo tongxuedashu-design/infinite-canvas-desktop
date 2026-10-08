@@ -69,5 +69,18 @@ $portableRuntime = Join-Path $OutputDirectory 'runtime'
 New-Item -ItemType Directory -Path $portableRuntime | Out-Null
 Copy-Item -LiteralPath $nodeCommand.Source -Destination (Join-Path $portableRuntime 'node.exe')
 
+$forbiddenReleaseEntries = @(
+    'AGENTS.md',
+    'CODEX_BACKEND_HANDOFF.md',
+    'TEST_CHECKLIST.md',
+    'docs',
+    'desktop'
+)
+foreach ($forbiddenEntry in $forbiddenReleaseEntries) {
+    if (Test-Path (Join-Path $OutputDirectory $forbiddenEntry)) {
+        throw "Internal development material must not be included in the portable package: $forbiddenEntry"
+    }
+}
+
 Write-Host "Portable package created: $OutputDirectory"
 Write-Host 'Move the complete portable directory, including web, runtime, and InfiniteCanvasDesktop.exe.'

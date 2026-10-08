@@ -28,11 +28,9 @@
 - [漏洞提交](/zh-CN/docs/support/security)
 - [赞助支持](/zh-CN/docs/support/sponsor)
 
-## 项目进度
+## 版本记录
 
 - [更新日志](/zh-CN/docs/progress/changelog)
-- [待测试](/zh-CN/docs/progress/pending-test)
-- [TODO](/zh-CN/docs/progress/todo)
 
 ## 说明
 

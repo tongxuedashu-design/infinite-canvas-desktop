@@ -343,6 +343,15 @@ export default {
         shortcuts: "Keyboard shortcuts",
         lightTheme: "Switch to light theme",
         darkTheme: "Switch to dark theme",
+        about: "About this desktop edition",
+    },
+    about: {
+        title: "About Infinite Canvas Desktop",
+        product: "Infinite Canvas Desktop",
+        description: "A Windows desktop launcher for the open-source image creation workspace.",
+        attribution: "Based on basketikun/infinite-canvas, with the upstream project and original author credited.",
+        unofficial: "Maintained by tongxuedashu-design. This is not an official upstream release or endorsement.",
+        license: "License: MIT. See LICENSE and ATTRIBUTIONS.md in the project root for the full license and attribution details.",
     },
     home: {
         promptError: "Failed to load prompts",

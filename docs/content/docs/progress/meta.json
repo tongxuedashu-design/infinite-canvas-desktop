@@ -3,10 +3,6 @@
   "root": true,
   "defaultOpen": true,
   "pages": [
-    "[Changelog](/docs/progress/changelog)",
-    "local-agent-integration-plan",
-    "prompt-chip-input-plan",
-    "pending-test",
-    "todo"
+    "[Changelog](/docs/progress/changelog)"
   ]
 }

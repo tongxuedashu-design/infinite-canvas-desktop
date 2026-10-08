@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
-import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { useState } from "react";
+import { Modal, Tooltip } from "antd";
+import { BookOpen, Info, Keyboard, Puzzle, Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -34,6 +35,7 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const locale = i18n.resolvedLanguage as AppLocale;
     const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
     const languageLabel = t("topNav.switchLanguage", { language: t(nextLocale === "zh-CN" ? "locale.zhCN" : "locale.enUS") });
+    const [aboutOpen, setAboutOpen] = useState(false);
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
@@ -57,12 +59,29 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
             </Tooltip>
             <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} className={naturalIconClass} style={iconStyle} aria-label={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} title={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} />
             <VersionReleaseModal style={versionStyle} />
+            <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => setAboutOpen(true)} aria-label={t("topNav.about")} title={t("topNav.about")}>
+                <Info className="size-4" />
+            </button>
             <GitHubLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", gitHubClassName)} style={gitHubStyle} />
             {onOpenShortcuts ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label={t("topNav.shortcuts")} title={t("topNav.shortcuts")}>
                     <Keyboard className="size-4" />
                 </button>
             ) : null}
+            <Modal title={t("about.title")} open={aboutOpen} onCancel={() => setAboutOpen(false)} footer={null} centered>
+                <div className="space-y-3 text-sm leading-6 text-stone-600 dark:text-stone-300">
+                    <p className="font-medium text-stone-950 dark:text-stone-100">{t("about.product")}</p>
+                    <p>{t("about.description")}</p>
+                    <p>{t("about.attribution")}</p>
+                    <p>{t("about.unofficial")}</p>
+                    <p>
+                        {t("about.license")} {" "}
+                        <a className="text-blue-600 hover:underline dark:text-blue-400" href="https://github.com/basketikun/infinite-canvas" target="_blank" rel="noreferrer">
+                            basketikun/infinite-canvas
+                        </a>
+                    </p>
+                </div>
+            </Modal>
         </div>
     );
 }

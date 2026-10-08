@@ -13,6 +13,19 @@ web/dist
 **/dist
 web/public/plugins
 
+# Internal maintainer notes and release work files
+AGENTS.md
+CODEX_BACKEND_HANDOFF.md
+CLAUDE_FRONTEND_HANDOFF.md
+CLAUDE_FRONTEND_VISUAL_BRIEF.md
+CONTEXT.md
+.agents/
+docs/windows-release.md
+docs/content/docs/progress/todo*.mdx
+docs/content/docs/progress/pending-test*.mdx
+desktop/README.md
+skills-lock.json
+
 # Local desktop runtime data and credentials
 EdgeData/
 **/EdgeData/

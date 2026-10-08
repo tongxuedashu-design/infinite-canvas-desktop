@@ -46,7 +46,7 @@ bun install
 bun run dev
 ~~~
 
-访问 http://localhost:3000。开发机编译启动器及准备便携包见 [桌面端维护说明](desktop/README.md)。
+访问 http://localhost:3000。
 
 普通 Web 模式中，项目、素材和 API Key 默认保存在所用浏览器本地。桌面源码启动则使用项目根目录上一级的 EdgeData/，例如 D:\无限画布\EdgeData；便携包使用自身的 EdgeData/，两者不会自动复制或覆盖。
 
@@ -55,11 +55,9 @@ bun run dev
 ## 文档与许可证
 
 - [用户使用说明](FIRST_RUN.md)
-- [发布交接与检查清单](docs/windows-release.md)
 - [功能介绍](docs/content/docs/overview/features.zh-CN.mdx)
 - [画布节点操作手册](docs/content/docs/canvas/canvas-node-manual.zh-CN.mdx)
 - [画布快捷键](docs/content/docs/canvas/canvas-shortcuts.zh-CN.mdx)
 - [本地 Canvas Agent（可选，未随便携包启动）](canvas-agent/README.md)
-- [待办事项](docs/content/docs/progress/todo.zh-CN.mdx)
 
-代码按 [MIT License](LICENSE) 发布，保留上游原有 `Copyright (c) 2026 basketikun`。本项目是在 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas) 基础上的衍生版本；本仓库新增的 Windows 启动器、适配代码和文档属于后续修改，具体归属边界见 [归属说明](ATTRIBUTIONS.md)。MIT 允许使用、修改及商业分发，并要求随软件保留版权与许可文本。打包的 Node.js、.NET 和 npm 依赖遵循各自许可证；根目录 MIT 不替代它们的许可要求。归属及分发材料检查见 [发布交接](docs/windows-release.md)。
+代码按 [MIT License](LICENSE) 发布，保留上游原有 `Copyright (c) 2026 basketikun`。本项目是在 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas) 基础上的衍生版本；本仓库新增的 Windows 启动器、适配代码和文档属于后续修改，具体归属边界见 [归属说明](ATTRIBUTIONS.md)。MIT 允许使用、修改及商业分发，并要求随软件保留版权与许可文本。打包的 Node.js、.NET 和 npm 依赖遵循各自许可证；根目录 MIT 不替代它们的许可要求。

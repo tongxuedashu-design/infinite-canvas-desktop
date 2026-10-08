@@ -343,6 +343,15 @@ export default {
         shortcuts: "快捷键",
         lightTheme: "切换到浅色主题",
         darkTheme: "切换到深色主题",
+        about: "关于此桌面版",
+    },
+    about: {
+        title: "关于无限画布桌面版",
+        product: "无限画布桌面版",
+        description: "面向图片创作的开源工作台的 Windows 桌面启动版本。",
+        attribution: "基于 basketikun/infinite-canvas 开发，保留上游项目及原作者归属。",
+        unofficial: "本桌面版由 tongxuedashu-design 维护，不代表上游官方发行或背书。",
+        license: "许可证：MIT。完整许可和归属信息请参见项目根目录的 LICENSE 与 ATTRIBUTIONS.md。",
     },
     home: {
         promptError: "获取提示词失败",
